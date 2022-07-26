@@ -50,7 +50,7 @@
 #include "replication/unreplicated/replica.h"
 #include "replication/vr/replica.h"
 
-#usage should add a section [-p udp|dpdk][-x device-port][-v device]
+
 static void Usage(const char *progName) {
   fprintf(stderr,
           "usage: %s -c conf-file [-R] -i replica-index -m "
@@ -67,10 +67,10 @@ int main(int argc, char **argv) {
   double reorderRate = 0.0;
   int batchSize = 1;
   bool recover = false;
-  #std::string dev, transport_cmdline;
-  #int dev_port = 0;
-  #int n_transport_cores = 1;
-  #int core_id = 0;
+  std::string dev, transport_cmdline;
+  int dev_port = 0;
+  int n_transport_cores = 1;
+  int core_id = 0;
   dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 
   enum {
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     PROTO_TOMBFT,
   } proto = PROTO_UNKNOWN;
 
-#the line below is the direct copy of Line 88 of lib/client.cc for enum of transport type
+  // the line below is the direct copy of Line 88 of lib/client.cc for enum of transport type
   enum { TRANSPORT_UDP, TRANSPORT_DPDK } transport_type = TRANSPORT_UDP;
 
   // Parse arguments
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
         recover = true;
         break;
        
-#the 24 lines below are the direct copy of Line114-Line126 && Line 181-Line190 of lib/client.cc for arg input  
+     // the 24 lines below are the direct copy of Line114-Line126 && Line 181-Line190 of lib/client.cc for arg input  
       case 'v':
         dev = std::string(optarg);
         break;
@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
     Usage(argv[0]);
   }
   
-  #the 11 lines below are direct copy from Line 248 of lib/client.cc for DPDKtransport
+  // the 11 lines below are direct copy from Line 248 of lib/client.cc for DPDKtransport
   dsnet::Transport *transport;
   switch (transport_type) {
     case TRANSPORT_UDP:
@@ -239,8 +239,8 @@ int main(int argc, char **argv) {
   }
 
   
-#the line below should be replaced by Line248 of lib/client.cc
-  #dsnet::UDPTransport transport(dropRate, reorderRate, nullptr);
+  // the line below should be replaced by Line248 of lib/client.cc
+  // dsnet::UDPTransport transport(dropRate, reorderRate, nullptr);
 
   dsnet::Replica *replica;
   dsnet::Secp256k1Signer signer;
@@ -284,9 +284,9 @@ int main(int argc, char **argv) {
     default:
       NOT_REACHABLE();
   }
-#the line below is the direct copy of the line 403 of lib/client.cc for transport Run
+ // the line below is the direct copy of the line 403 of lib/client.cc for transport Run
   transport->Run();
-#the line below should be replcaed by Line 403 of lib/client.cc
-#  transport.Run();
+ // the line below should be replcaed by Line 403 of lib/client.cc
+ //  transport.Run();
   delete replica;
 }
