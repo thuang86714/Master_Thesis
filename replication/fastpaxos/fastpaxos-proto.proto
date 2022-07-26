@@ -1,0 +1,75 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.fastpaxos.proto;
+
+message ReplyMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+    required bytes reply = 3;
+    required uint64 clientreqid = 4;
+}
+
+message UnloggedReplyMessage {
+    required bytes reply = 1;
+}
+
+message ToClientMessage {
+    oneof msg {
+        ReplyMessage reply = 1;
+        UnloggedReplyMessage unlogged_reply = 2;
+    }
+}
+
+message RequestMessage {
+    required dsnet.Request req = 1;
+}
+
+message UnloggedRequestMessage {
+    required dsnet.UnloggedRequest req = 1;
+}
+
+message PrepareOKMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+    required uint32 replicaIdx = 3;
+    required dsnet.Request req = 4;
+    required uint32 slowpath = 5;
+}
+
+message PrepareMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+    required dsnet.Request req = 3;
+}
+
+message CommitMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+    required dsnet.Request req = 3;
+}
+
+message RequestStateTransferMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+}
+
+message StateTransferMessage {
+    required uint64 view = 1;
+    required uint64 opnum = 2;
+    repeated dsnet.MsgLogEntry entries = 3;
+    required uint64 lastop = 4;
+}
+
+message ToReplicaMessage {
+    oneof msg {
+        RequestMessage request = 1;
+        UnloggedRequestMessage unlogged_request = 2;
+        PrepareMessage prepare = 3;
+        PrepareOKMessage prepare_ok = 4;
+        CommitMessage commit = 5;
+        RequestStateTransferMessage request_state_transfer = 6;
+        StateTransferMessage state_transfer = 7;
+    }
+}

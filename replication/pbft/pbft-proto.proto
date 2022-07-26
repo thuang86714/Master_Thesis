@@ -1,0 +1,77 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.pbft.proto;
+
+message ToClientMessage {
+    oneof msg {
+        ReplyMessage reply = 1;
+        UnloggedReplyMessage unlogged_reply = 2;
+    }
+}
+
+message UnloggedReplyMessage {
+    required bytes reply = 1;
+}
+
+message ReplyMessage {
+    required uint64 view = 1;
+    // timestamp, client inside
+    required dsnet.Request req = 2;
+    required uint64 replicaid = 3;
+    required bytes reply = 4;
+    required bool speculative = 5;
+    required bytes sig = 6;
+}
+
+message ToReplicaMessage {
+    oneof msg {
+        RequestMessage request = 1;
+        UnloggedRequestMessage unlogged_request = 2;
+        PrePrepareMessage pre_prepare = 3;
+        PrepareMessage prepare = 4;
+        CommitMessage commit = 5;
+        StateTransferRequestMessage state_transfer_request = 6;
+    }
+}
+
+message RequestMessage {
+    // op, timpstamp, client inside
+    required dsnet.Request req = 1;
+    required bytes sig = 2;    
+    required bool relayed = 3;
+}
+
+message UnloggedRequestMessage {
+    required dsnet.UnloggedRequest req = 1;
+}
+
+message StateTransferRequestMessage {
+    required uint64 seqnum = 1;
+}
+
+// signed part
+message Common {
+    required uint64 view = 1;
+    required uint64 seqnum = 2;
+    required bytes digest = 3;
+}
+
+message PrePrepareMessage {
+    required Common common = 1;
+    required bytes sig = 2;
+    required RequestMessage message = 3;
+}
+
+message PrepareMessage {
+    required Common common = 1;
+    required int64 replicaid = 2;
+    required bytes sig = 3;
+}
+
+message CommitMessage {
+    required Common common = 1;
+    required int64 replicaid = 2;
+    required bytes sig = 3;
+}

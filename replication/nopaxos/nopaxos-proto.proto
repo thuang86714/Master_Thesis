@@ -1,0 +1,155 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.nopaxos.proto;
+
+message ReplyMessage {
+  required uint64 view = 1;
+  required uint64 sessnum = 2;
+  required uint64 opnum = 3;
+  required uint64 clientreqid = 4;
+  required uint32 replicaidx = 5;
+  optional bytes reply = 6;
+}
+
+message UnloggedReplyMessage {
+  required bytes reply = 1;
+}
+
+message ToClientMessage {
+    oneof msg {
+        ReplyMessage reply = 1;
+        UnloggedReplyMessage unlogged_reply = 2;
+    }
+}
+
+message RequestMessage {
+  required uint64 sessnum = 1;
+  required uint64 msgnum = 2;
+  required dsnet.Request req = 3;
+}
+
+message UnloggedRequestMessage {
+  required dsnet.UnloggedRequest req = 1;
+}
+
+message GapRequestMessage {
+  required uint64 view = 1;
+  required uint64 sessnum = 2;
+  required uint64 opnum = 3;
+}
+
+message GapReplyMessage {
+  required uint64 view = 1;
+  required uint64 sessnum = 2;
+  required uint64 opnum = 3;
+  required bool isfound = 4;
+  required bool isgap = 5;
+  required uint32 replicaidx = 6;
+  optional dsnet.Request req = 7;
+}
+
+message StateTransferRequestMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 begin = 3;
+  required uint64 end = 4;
+}
+
+message StateTransferReplyMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 begin = 3;
+  required uint64 end = 4;
+  repeated dsnet.MsgLogEntry entries = 5;
+}
+
+message GapCommitMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 opnum = 3;
+}
+
+message GapCommitReplyMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 opnum = 3;
+  required uint32 replicaidx = 4;
+}
+
+message ViewChangeRequestMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+}
+
+message ViewChangeMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 lastnormalsessnum = 3;
+  required uint64 lastnormalview = 4;
+  required uint64 lastop = 5;
+  repeated uint64 committedgaps = 6;
+  required uint32 replicaidx = 7;
+}
+
+message StartViewMessage {
+  required uint64 sessnum = 1;
+  required uint64 view = 2;
+  required uint64 lastnormalsessnum = 3;
+  required uint64 lastnormalview = 4;
+  required uint64 lastop = 5;
+  repeated uint64 committedgaps = 6;
+}
+
+message StartViewReplyMessage {
+    required uint64 sessnum = 1;
+    required uint64 view = 2;
+    required uint32 replicaidx = 3;
+}
+
+message SyncPrepareRequestMessage {
+    required uint64 sessnum = 1;
+    required uint64 view = 2;
+}
+
+message SyncPrepareMessage {
+    required uint64 sessnum = 1;
+    required uint64 view = 2;
+    required uint64 lastop = 3;
+    repeated uint64 committedgaps = 4;
+}
+
+message SyncPrepareReplyMessage {
+    required uint64 sessnum = 1;
+    required uint64 view = 2;
+    required uint64 syncpoint = 3;
+    required uint32 replicaidx = 4;
+}
+
+message SyncCommitMessage {
+    required uint64 sessnum = 1;
+    required uint64 view = 2;
+    required uint64 syncpoint = 3;
+}
+
+message ToReplicaMessage {
+    oneof msg {
+        RequestMessage request = 1;
+        UnloggedRequestMessage unlogged_request = 2;
+        GapRequestMessage gap_request = 3;
+        GapReplyMessage gap_reply = 4;
+        StateTransferRequestMessage state_transfer_request = 5;
+        StateTransferReplyMessage state_transfer_reply = 6;
+        GapCommitMessage gap_commit = 7;
+        GapCommitReplyMessage gap_commit_reply = 8;
+        ViewChangeRequestMessage view_change_request = 9;
+        ViewChangeMessage view_change = 10;
+        StartViewMessage start_view = 11;
+        StartViewReplyMessage start_view_reply = 12;
+        SyncPrepareRequestMessage sync_prepare_request = 13;
+        SyncPrepareMessage sync_prepare = 14;
+        SyncPrepareReplyMessage sync_prepare_reply = 15;
+        SyncCommitMessage sync_commit = 16;
+    }
+}

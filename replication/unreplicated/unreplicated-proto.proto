@@ -1,0 +1,38 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.unreplicated.proto;
+
+message RequestMessage {
+    required dsnet.Request req = 1;
+}
+
+message UnloggedRequestMessage {
+    required dsnet.UnloggedRequest req = 1;
+}
+
+message ToReplicaMessage {
+    oneof msg {
+        RequestMessage request = 1;
+        UnloggedRequestMessage unlogged_request = 2;
+    }
+}
+
+message ReplyMessage {
+    optional uint64 view = 1;
+    optional uint64 opnum = 2;
+    required dsnet.Request req = 3;
+    required bytes reply = 4;
+}
+
+message UnloggedReplyMessage {
+    required bytes reply = 1;
+}
+
+message ToClientMessage {
+    oneof msg {
+        ReplyMessage reply = 1;
+        UnloggedReplyMessage unlogged_reply = 2;
+    }
+}

@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.tombft.proto;
+
+message Message {
+    oneof msg {
+        RequestMessage request = 1;
+        ReplyMessage reply = 2;
+    }
+}
+
+message RequestMessage {
+    required dsnet.Request req = 1;
+    required bytes sig = 2;
+}
+
+message ReplyMessage {
+    required uint64 view = 1;
+    required uint64 replicaid = 2;
+    required uint64 opnum = 3;
+    required uint64 clientreqid = 4;
+    required bytes reply = 5;
+    required bytes sig = 6;    
+}
