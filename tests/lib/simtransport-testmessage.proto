@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package dsnet.test;
+
+message TestMessage {
+    required string test = 1;
+}
