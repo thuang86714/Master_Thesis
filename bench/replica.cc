@@ -40,6 +40,7 @@
 #include <vector>
 
 #include "lib/configuration.h"
+#include "lib/dpdktransport.h"
 #include "lib/signature.h"
 #include "lib/udptransport.h"
 #include "replication/fastpaxos/replica.h"
@@ -49,11 +50,12 @@
 #include "replication/unreplicated/replica.h"
 #include "replication/vr/replica.h"
 
+#usage should add a section [-p udp|dpdk][-x device-port][-v device]
 static void Usage(const char *progName) {
   fprintf(stderr,
           "usage: %s -c conf-file [-R] -i replica-index -m "
           "unreplicated|vr|fastpaxos|nopaxos [-b batch-size] [-d "
-          "packet-drop-rate] [-r packet-reorder-rate]\n",
+          "packet-drop-rate] [-r packet-reorder-rate] [-p udp|dpdk] [-x device-port] [-v device]\n",
           progName);
   exit(1);
 }
@@ -65,7 +67,10 @@ int main(int argc, char **argv) {
   double reorderRate = 0.0;
   int batchSize = 1;
   bool recover = false;
-
+  #std::string dev, transport_cmdline;
+  #int dev_port = 0;
+  #int n_transport_cores = 1;
+  #int core_id = 0;
   dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 
   enum {
@@ -78,6 +83,9 @@ int main(int argc, char **argv) {
     PROTO_PBFT,
     PROTO_TOMBFT,
   } proto = PROTO_UNKNOWN;
+
+#the line below is the direct copy of Line 88 of lib/client.cc for enum of transport type
+  enum { TRANSPORT_UDP, TRANSPORT_DPDK } transport_type = TRANSPORT_UDP;
 
   // Parse arguments
   int opt;
@@ -151,6 +159,32 @@ int main(int argc, char **argv) {
       case 'R':
         recover = true;
         break;
+       
+#the 24 lines below are the direct copy of Line114-Line126 && Line 181-Line190 of lib/client.cc for arg input  
+      case 'v':
+        dev = std::string(optarg);
+        break;
+
+      case 'x': {
+        char *strtol_ptr;
+        dev_port = strtoul(optarg, &strtol_ptr, 10);
+        if ((*optarg == '\0') || (*strtol_ptr != '\0')) {
+          fprintf(stderr, "option -x requires a numeric arg\n");
+          Usage(argv[0]);
+        }
+        break;
+      }
+
+      case 'p':
+        if (strcasecmp(optarg, "udp") == 0) {
+          transport_type = TRANSPORT_UDP;
+        } else if (strcasecmp(optarg, "dpdk") == 0) {
+          transport_type = TRANSPORT_DPDK;
+        } else {
+          fprintf(stderr, "unknown transport '%s'\n", optarg);
+          Usage(argv[0]);
+        }
+        break;
 
       default:
         fprintf(stderr, "Unknown argument %s\n", argv[optind]);
@@ -190,8 +224,23 @@ int main(int argc, char **argv) {
             index, config.n);
     Usage(argv[0]);
   }
+  
+  #the 11 lines below are direct copy from Line 248 of lib/client.cc for DPDKtransport
+  dsnet::Transport *transport;
+  switch (transport_type) {
+    case TRANSPORT_UDP:
+      transport = new dsnet::UDPTransport(0, 0);
+      break;
+    case TRANSPORT_DPDK:
+      transport = new dsnet::DPDKTransport(dev_port, 0,
+                                           n_transport_cores, core_id,
+                                           transport_cmdline);
+      break;
+  }
 
-  dsnet::UDPTransport transport(dropRate, reorderRate, nullptr);
+  
+#the line below should be replaced by Line248 of lib/client.cc
+  #dsnet::UDPTransport transport(dropRate, reorderRate, nullptr);
 
   dsnet::Replica *replica;
   dsnet::Secp256k1Signer signer;
@@ -235,7 +284,9 @@ int main(int argc, char **argv) {
     default:
       NOT_REACHABLE();
   }
-
-  transport.Run();
+#the line below is the direct copy of the line 403 of lib/client.cc for transport Run
+  transport->Run();
+#the line below should be replcaed by Line 403 of lib/client.cc
+#  transport.Run();
   delete replica;
 }
