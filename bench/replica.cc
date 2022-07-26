@@ -284,9 +284,7 @@ int main(int argc, char **argv) {
     default:
       NOT_REACHABLE();
   }
- // the line below is the direct copy of the line 403 of lib/client.cc for transport Run
+
   transport->Run();
- // the line below should be replcaed by Line 403 of lib/client.cc
- //  transport.Run();
   delete replica;
 }
