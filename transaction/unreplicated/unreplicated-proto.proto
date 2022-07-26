@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+import "common/request.proto";
+
+package dsnet.transaction.unreplicated.proto;
+
+message RequestMessage {
+    enum RequestType {
+        UNKNOWN = 0;
+        INDEPENDENT = 1;
+        PREPARE = 2;
+        COMMIT = 3;
+        ABORT = 4;
+    }
+    required uint64 txnid = 1;
+    required Request request = 2;
+    required RequestType type = 3;
+}
+
+message ReplyMessage {
+  required uint64 clientreqid = 1;
+  required uint32 shard_num = 2;
+  required uint32 commit = 3;
+  optional bytes reply = 4;
+}
+
