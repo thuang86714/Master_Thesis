@@ -54,7 +54,7 @@
 static void Usage(const char *progName) {
   fprintf(stderr,
           "usage: %s -c conf-file [-R] -i replica-index -m "
-          "unreplicated|vr|fastpaxos|nopaxos -p udp|dpdk -x device-port -v device[-b batch-size] [-d "
+          "unreplicated|vr|fastpaxos|nopaxos -p udp|dpdk -x device-port -v device [-b batch-size] [-d "
           "packet-drop-rate] [-r packet-reorder-rate]\n",
           progName);
   exit(1);
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 
   // Parse arguments
   int opt;
-  while ((opt = getopt(argc, argv, "b:c:d:i:m:r:R:tw:")) != -1) {
+  while ((opt = getopt(argc, argv, "b:c:d:i:m:p:r:R:tw:v:x:")) != -1) {
     switch (opt) {
       case 'b': {
         char *strtolPtr;
