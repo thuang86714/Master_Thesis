@@ -253,32 +253,32 @@ int main(int argc, char **argv) {
   switch (proto) {
     case PROTO_UNREPLICATED:
       replica = new dsnet::unreplicated::UnreplicatedReplica(
-          config, index, !recover, &transport, nullApp);
+          config, index, !recover, transport, nullApp);
       break;
 
     case PROTO_VR:
-      replica = new dsnet::vr::VRReplica(config, index, !recover, &transport,
+      replica = new dsnet::vr::VRReplica(config, index, !recover, transport,
                                          batchSize, nullApp);
       break;
 
     case PROTO_FASTPAXOS:
       replica = new dsnet::fastpaxos::FastPaxosReplica(config, index, !recover,
-                                                       &transport, nullApp);
+                                                       transport, nullApp);
       break;
 
     case PROTO_NOPAXOS:
       replica = new dsnet::nopaxos::NOPaxosReplica(config, index, !recover,
-                                                   &transport, nullApp);
+                                                   transport, nullApp);
       break;
 
     case PROTO_PBFT:
       replica = new dsnet::pbft::PbftReplica(config, index, !recover,
-                                             &transport, security, nullApp);
+                                             transport, security, nullApp);
       break;
 
     case PROTO_TOMBFT:
       replica = new dsnet::tombft::TomBFTReplica(config, index, !recover,
-                                                 &transport, security, nullApp);
+                                                 transport, security, nullApp);
       break;
 
     default:
