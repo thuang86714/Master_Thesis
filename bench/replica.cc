@@ -54,8 +54,8 @@
 static void Usage(const char *progName) {
   fprintf(stderr,
           "usage: %s -c conf-file [-R] -i replica-index -m "
-          "unreplicated|vr|fastpaxos|nopaxos [-b batch-size] [-d "
-          "packet-drop-rate] [-r packet-reorder-rate] [-p udp|dpdk] [-x device-port] [-v device]\n",
+          "unreplicated|vr|fastpaxos|nopaxos -p udp|dpdk -x device-port -v device[-b batch-size] [-d "
+          "packet-drop-rate] [-r packet-reorder-rate]\n",
           progName);
   exit(1);
 }
