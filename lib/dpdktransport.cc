@@ -322,12 +322,6 @@ DPDKTransport::RegisterInternal(TransportReceiver *receiver,
     ASSERT(addr != nullptr);
     DPDKTransportAddress *da = new DPDKTransportAddress(LookupAddressInternal(*addr));
 
-    // We use first byte of udp port to steer packet
-    do {
-        uint16_t udp_port = (rand() % 256) | (core_id_ << 8);
-        da->udp_addr_ = rte_cpu_to_be_16(udp_port);
-    } while (receivers_.count(da->udp_addr_) > 0);
-
     receiver->SetAddress(da);
     receivers_[da->udp_addr_] = receiver;
 }
@@ -574,8 +568,11 @@ DPDKTransport::LookupAddressInternal(const ReplicaAddress &addr) const
     }
     uint16_t udp_port = uint16_t(stoul(addr.port));
     if (udp_port == 0) {
-        // Assign a random udp port
-        udp_port = rand() % 65535;
+        // Assign a random udp port to client. Use first byte of the port to
+        // steer packet.
+        do {
+            udp_port = (rand() % 256) | (core_id_ << 8);
+        } while (receivers_.count(rte_cpu_to_be_16(udp_port)) > 0);
     }
     rte_be16_t udp_addr = rte_cpu_to_be_16(udp_port);
     return DPDKTransportAddress(ether_addr, ip_addr, udp_addr);
