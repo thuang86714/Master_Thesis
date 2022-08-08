@@ -221,44 +221,54 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    break;
 	//all cases below should be executed on the Host
         case ToReplicaMessage::MsgCase::kUnloggedRequest:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+ 	    //No Need RDMA Read, since return of HandleUnloggedRequest is void
             HandleUnloggedRequest(remote, replica_msg.unlogged_request());
             break;
         case ToReplicaMessage::MsgCase::kPrepare:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+	    ////No Need RDMA Read, since return of HandlePrepare is void
             HandlePrepare(remote, replica_msg.prepare());
             break;
         case ToReplicaMessage::MsgCase::kCommit:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+     	    ////No Need RDMA Read, since return of HandleCommit is void
             HandleCommit(remote, replica_msg.commit());
             break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+            ////No Need RDMA Read, since return of HandleRequestStateTransfer is void
             HandleRequestStateTransfer(remote,
                     replica_msg.request_state_transfer());
             break;
         case ToReplicaMessage::MsgCase::kStateTransfer:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+	    //No Need RDMA Read, since return of HandleRequestStateTransfer is void
             HandleStateTransfer(remote, replica_msg.state_transfer());
             break;
         case ToReplicaMessage::MsgCase::kStartViewChange:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+	    ////No Need RDMA Read, since return of HandleStartViewChange is void
             HandleStartViewChange(remote, replica_msg.start_view_change());
             break;
         case ToReplicaMessage::MsgCase::kDoViewChange:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+	    //No Need RDMA Read, since return of HandleDoViewChange is void
             HandleDoViewChange(remote, replica_msg.do_view_change());
             break;
         case ToReplicaMessage::MsgCase::kStartView:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+	    //No Need RDMA Read, since return of HandleStartView is void
             HandleStartView(remote, replica_msg.start_view());
             break;
         case ToReplicaMessage::MsgCase::kRecovery:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+	    //No Need RDMA Read, since return of HandleRecovery is void
             HandleRecovery(remote, replica_msg.recovery());
             break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
+	    //No Need RDMA Read, since return of HandleRecoveryResponse is void
             HandleRecoveryResponse(remote, replica_msg.recovery_response());
             break;
         default:
