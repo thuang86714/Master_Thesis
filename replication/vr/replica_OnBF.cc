@@ -32,6 +32,8 @@ using namespace proto;
 //BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
+//Hardcoded the RDMA server addr as 10.1.0.4
+	//Need to find way for sent message other than string
 static struct rdma_event_channel *cm_event_channel = NULL;
 static struct rdma_cm_id *cm_client_id = NULL;
 static struct ibv_pd *pd = NULL;
@@ -144,6 +146,7 @@ VRReplica::AmLeader() const
 }		  
 		  
 //send prepare message
+//No need tidy up
 void
 VRReplica::CloseBatch()
 {
@@ -211,8 +214,12 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kRequest:
             //HandleRequest is leader-replica-specific task, should remain on BF 
             HandleRequest(remote, replica_msg.request());
-        
             break;
+	case ToReplicaMessage::MsgCase::kPrepareOk:
+            //HandleRequest is leader-replica-specific task, should remain on BF 
+            HandlePrepareOK(remote, replica_msg.prepare_ok());
+	    break;
+	//all cases below should be executed on the Host
         case ToReplicaMessage::MsgCase::kUnloggedRequest:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleUnloggedRequest(remote, replica_msg.unlogged_request());
@@ -220,10 +227,6 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kPrepare:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandlePrepare(remote, replica_msg.prepare());
-            break;
-        case ToReplicaMessage::MsgCase::kPrepareOk:
-            //HandleRequest is leader-replica-specific task, should remain on BF 
-            HandlePrepareOK(remote, replica_msg.prepare_ok());
             break;
         case ToReplicaMessage::MsgCase::kCommit:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
@@ -375,6 +378,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         Latency_End(&requestLatency);
     }
 }
+
 		  
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
@@ -417,6 +421,8 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
          *
          * This also notifies the client of the result.
          */
+	    
+	//the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
         CommitUpTo(msg.opnum());
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
