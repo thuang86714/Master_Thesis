@@ -1,6 +1,13 @@
 //all the VR slow path logic+ non-leader replica fast path logic should be executed on HostMachine
 //There are at least 2 ways tom communicate to the attachted BF; messeagin sending and RDMA. I choose RDMA as the first potential approach
-
+/* for RDMA server side of code
+ * This is a RDMA server side code. 
+ *
+ * Author: Animesh Trivedi 
+ *         atrivedi@apache.org 
+ *
+ * TODO: Cleanup previously allocated resources in case of an error condition
+ */
 #include "common/replica.h"
 #include "replication/vr/replica.h"
 
@@ -24,6 +31,7 @@ using namespace proto;
 //Host Machine should be RDMA server
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
+//write a main, so during experiment, I will also run one process on Node10
 static struct rdma_event_channel *cm_event_channel = NULL;
 static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
 static struct ibv_pd *pd = NULL;
@@ -1192,3 +1200,6 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
 
 } // namespace dsnet::vr
 } // namespace dsnet
+
+//make main constantly listening on certain addr and port
+main
