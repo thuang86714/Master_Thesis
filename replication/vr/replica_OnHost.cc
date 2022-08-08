@@ -213,6 +213,20 @@ VRReplica::EnterView(view_t newview)
     recoveryResponseQuorum.Clear();
 }
 
+void
+VRReplica::SendNullCommit()
+{
+    ToReplicaMessage m;
+    CommitMessage *c = m.mutable_commit();
+    c->set_view(this->view);
+    c->set_opnum(this->lastCommitted);
+
+    ASSERT(AmLeader());
+
+    if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
+        RWarning("Failed to send null COMMIT message to all replicas");
+    }
+}
   
 void
 VRReplica::UpdateClientTable(const Request &req)
