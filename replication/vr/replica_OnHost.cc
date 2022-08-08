@@ -48,12 +48,7 @@ VRReplica::GenerateNonce() const
     return dis(gen);
 }
 
-//fast-path && non-leader
-bool
-VRReplica::AmLeader() const
-{
-    return (configuration.GetLeaderIndex(view) == this->replicaIdx);
-}
+
 
 //fast-path && non-leader
 void
