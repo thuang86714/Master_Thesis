@@ -32,24 +32,24 @@ using namespace proto;
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
 static struct rdma_event_channel *cm_event_channel = NULL;
-static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
+static struct rdma_cm_id *cm_client_id = NULL;
 static struct ibv_pd *pd = NULL;
 static struct ibv_comp_channel *io_completion_channel = NULL;
-static struct ibv_cq *cq = NULL;
+static struct ibv_cq *client_cq = NULL;
 static struct ibv_qp_init_attr qp_init_attr;
-static struct ibv_qp *client_qp = NULL;
-/* RDMA memory resources */
-static struct ibv_mr *client_metadata_mr = NULL, *server_buffer_mr = NULL, *server_metadata_mr = NULL;
+static struct ibv_qp *client_qp;
+/* These are memory buffers related resources */
+static struct ibv_mr *client_metadata_mr = NULL, 
+		     *client_src_mr = NULL, 
+		     *client_dst_mr = NULL, 
+		     *server_metadata_mr = NULL;
 static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
-static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
-static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
-static struct ibv_sge client_recv_sge, server_send_sge;
+static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
+static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
+static struct ibv_sge client_send_sge, server_recv_sge;
+/* Source and Destination buffers, where RDMA operations source and sink */
+static char *src = NULL, *dst = NULL; 
 
-/* When we call this function cm_client_id must be set to a valid identifier.
- * This is where, we prepare client connection before we accept it. This 
- * mainly involve pre-posting a receive buffer to receive client side 
- * RDMA credentials
- */  
   
 //for constrcutor and destructor should not need any change
 VRReplica::VRReplica(Configuration config, int myIdx,
