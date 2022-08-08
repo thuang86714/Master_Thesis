@@ -28,6 +28,7 @@ namespace dsnet {
 namespace vr {
 
 using namespace proto;
+	
 //BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
@@ -51,7 +52,7 @@ static struct ibv_sge client_send_sge, server_recv_sge;
 static char *src = NULL, *dst = NULL; 
 
   
-//for constrcutor and destructor should not need any change
+//for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
@@ -100,10 +101,11 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         });
 
     _Latency_Init(&requestLatency, "request");
-    _Latency_Init(&executeAndReplyLatency, "executeAndReply");
-
+    _Latency_Init(&executeAndReplyLatency, "executeAndReply";
+//add a rdma write function (for registration propose) to RDMA server. 
     if (initialize) {
         if (AmLeader()) {
+	
             nullCommitTimeout->Start();
         } else {
             viewChangeTimeout->Start();
@@ -116,6 +118,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     }
 }
 
+//destructor should not need any change
 VRReplica::~VRReplica()
 {
     Latency_Dump(&requestLatency);
@@ -133,6 +136,13 @@ VRReplica::~VRReplica()
     }
 }
 
+//fast-path && non-leader
+bool
+VRReplica::AmLeader() const
+{
+    return (configuration.GetLeaderIndex(view) == this->replicaIdx);
+}		  
+		  
 //send prepare message
 void
 VRReplica::CloseBatch()
@@ -172,20 +182,6 @@ VRReplica::CloseBatch()
 }
   
 
-void
-VRReplica::SendNullCommit()
-{
-    ToReplicaMessage m;
-    CommitMessage *c = m.mutable_commit();
-    c->set_view(this->view);
-    c->set_opnum(this->lastCommitted);
-
-    ASSERT(AmLeader());
-
-    if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
-        RWarning("Failed to send null COMMIT message to all replicas");
-    }
-}
 
 void
 VRReplica::ResendPrepare()
@@ -269,7 +265,117 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
     }
 }
 
-  
+void
+VRReplica::HandleRequest(const TransportAddress &remote,
+                         const RequestMessage &msg)
+{
+    viewstamp_t v;
+    Latency_Start(&requestLatency);
+
+    if (status != STATUS_NORMAL) {
+        RNotice("Ignoring request due to abnormal status");
+        Latency_EndType(&requestLatency, 'i');
+        return;
+    }
+
+    if (!AmLeader()) {
+        RDebug("Ignoring request because I'm not the leader");
+        Latency_EndType(&requestLatency, 'i');
+        return;
+    }
+
+    // Save the client's address
+    clientAddresses.erase(msg.req().clientid());
+    clientAddresses.insert(
+        std::pair<uint64_t, std::unique_ptr<TransportAddress> >(
+            msg.req().clientid(),
+            std::unique_ptr<TransportAddress>(remote.clone())));
+
+    // Check the client table to see if this is a duplicate request
+    auto kv = clientTable.find(msg.req().clientid());
+    if (kv != clientTable.end()) {
+        ClientTableEntry &entry = kv->second;
+        if (msg.req().clientreqid() < entry.lastReqId) {
+            RNotice("Ignoring stale request");
+            Latency_EndType(&requestLatency, 's');
+            return;
+        }
+        if (msg.req().clientreqid() == entry.lastReqId) {
+            // This is a duplicate request. Resend the reply if we
+            // have one. We might not have a reply to resend if we're
+            // waiting for the other replicas; in that case, just
+            // discard the request.
+            if (entry.replied) {
+                RNotice("Received duplicate request; resending reply");
+                if (!(transport->SendMessage(this, remote,
+                                             PBMessage(entry.reply)))) {
+                    RWarning("Failed to resend reply to client");
+                }
+                Latency_EndType(&requestLatency, 'r');
+                return;
+            } else {
+                RNotice("Received duplicate request but no reply available; ignoring");
+                Latency_EndType(&requestLatency, 'd');
+                return;
+            }
+        }
+    }
+
+    // Update the client table
+    UpdateClientTable(msg.req());
+
+    // Leader Upcall
+    bool replicate = false;
+    string res;
+    LeaderUpcall(lastCommitted, msg.req().op(), replicate, res);
+    ClientTableEntry &cte =
+        clientTable[msg.req().clientid()];
+
+    // Check whether this request should be committed to replicas
+    if (!replicate) {
+        RDebug("Executing request failed. Not committing to replicas");
+        ToClientMessage m;
+        ReplyMessage *reply = m.mutable_reply();
+
+        reply->set_reply(res);
+        reply->set_view(0);
+        reply->set_opnum(0);
+        reply->set_clientreqid(msg.req().clientreqid());
+        cte.replied = true;
+        cte.reply = m;
+        transport->SendMessage(this, remote, PBMessage(m));
+        Latency_EndType(&requestLatency, 'f');
+    } else {
+        Request request;
+        request.set_op(res);
+        request.set_clientid(msg.req().clientid());
+        request.set_clientreqid(msg.req().clientreqid());
+
+        /* Assign it an opnum */
+        ++this->lastOp;
+        v.view = this->view;
+        v.opnum = this->lastOp;
+
+        RDebug("Received REQUEST, assigning " FMT_VIEWSTAMP, VA_VIEWSTAMP(v));
+
+        /* Add the request to my log */
+        log.Append(new LogEntry(v, LOG_STATE_PREPARED, request));
+
+        if (batchComplete ||
+            (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
+            CloseBatch();
+        } else {
+            RDebug("Keeping in batch");
+            if (!closeBatchTimeout->Active()) {
+                closeBatchTimeout->Start();
+            }
+        }
+
+        nullCommitTimeout->Reset();
+        Latency_End(&requestLatency);
+    }
+}
+		  
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
                            const PrepareOKMessage &msg)
