@@ -28,7 +28,7 @@ namespace dsnet {
 namespace vr {
 
 using namespace proto;
-
+//BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
 static struct rdma_event_channel *cm_event_channel = NULL;
@@ -51,6 +51,7 @@ static struct ibv_sge client_recv_sge, server_send_sge;
  * RDMA credentials
  */  
   
+//for constrcutor and destructor should not need any change
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
@@ -170,30 +171,6 @@ VRReplica::CloseBatch()
     closeBatchTimeout->Stop();
 }
   
-  
-void
-VRReplica::StartViewChange(view_t newview)
-{
-    RNotice("Starting view change for view " FMT_VIEW, newview);
-
-    view = newview;
-    status = STATUS_VIEW_CHANGE;
-
-    viewChangeTimeout->Reset();
-    nullCommitTimeout->Stop();
-    resendPrepareTimeout->Stop();
-    closeBatchTimeout->Stop();
-
-    ToReplicaMessage m;
-    StartViewChangeMessage *svc = m.mutable_start_view_change();
-    svc->set_view(newview);
-    svc->set_replicaidx(this->replicaIdx);
-    svc->set_lastcommitted(lastCommitted);
-
-    if (!transport->SendMessageToAll(this, PBMessage(m))) {
-        RWarning("Failed to send StartViewChange message to all replicas");
-    }
-}
 
 void
 VRReplica::SendNullCommit()
@@ -223,42 +200,6 @@ VRReplica::ResendPrepare()
     }
 }
   
-void
-VRReplica::CloseBatch()
-{
-    ASSERT(AmLeader());
-    ASSERT(lastBatchEnd < lastOp);
-
-    opnum_t batchStart = lastBatchEnd+1;
-
-    RDebug("Sending batched prepare from " FMT_OPNUM
-           " to " FMT_OPNUM,
-           batchStart, lastOp);
-    /* Send prepare messages */
-    PrepareMessage *p = lastPrepare.mutable_prepare();
-    p->set_view(view);
-    p->set_opnum(lastOp);
-    p->set_batchstart(batchStart);
-    p->clear_request();
-
-    for (opnum_t i = batchStart; i <= lastOp; i++) {
-        Request *r = p->add_request();
-        const LogEntry *entry = log.Find(i);
-        ASSERT(entry != NULL);
-        ASSERT(entry->viewstamp.view == view);
-        ASSERT(entry->viewstamp.opnum == i);
-        *r = entry->request;
-    }
-
-    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
-        RWarning("Failed to send prepare message to all replicas");
-    }
-    lastBatchEnd = lastOp;
-    batchComplete = false;
-
-    resendPrepareTimeout->Reset();
-    closeBatchTimeout->Stop();
-}
 
 //further divide needed
 void
@@ -272,69 +213,62 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:
+            //HandleRequest is leader-replica-specific task, should remain on BF 
             HandleRequest(remote, replica_msg.request());
+        
             break;
         case ToReplicaMessage::MsgCase::kUnloggedRequest:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleUnloggedRequest(remote, replica_msg.unlogged_request());
             break;
         case ToReplicaMessage::MsgCase::kPrepare:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandlePrepare(remote, replica_msg.prepare());
             break;
         case ToReplicaMessage::MsgCase::kPrepareOk:
+            //HandleRequest is leader-replica-specific task, should remain on BF 
             HandlePrepareOK(remote, replica_msg.prepare_ok());
             break;
         case ToReplicaMessage::MsgCase::kCommit:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleCommit(remote, replica_msg.commit());
             break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleRequestStateTransfer(remote,
                     replica_msg.request_state_transfer());
             break;
         case ToReplicaMessage::MsgCase::kStateTransfer:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleStateTransfer(remote, replica_msg.state_transfer());
             break;
         case ToReplicaMessage::MsgCase::kStartViewChange:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleStartViewChange(remote, replica_msg.start_view_change());
             break;
         case ToReplicaMessage::MsgCase::kDoViewChange:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleDoViewChange(remote, replica_msg.do_view_change());
             break;
         case ToReplicaMessage::MsgCase::kStartView:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleStartView(remote, replica_msg.start_view());
             break;
         case ToReplicaMessage::MsgCase::kRecovery:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleRecovery(remote, replica_msg.recovery());
             break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. Then return host result
             HandleRecoveryResponse(remote, replica_msg.recovery_response());
             break;
         default:
+            //the line below should not need further change
             RPanic("Received unexpected message type %u",
                     replica_msg.msg_case());
     }
 }
-  
-void
-VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
-                                 const UnloggedRequestMessage &msg)
-{
-    if (status != STATUS_NORMAL) {
-        // Not clear if we should ignore this or just let the request
-        // go ahead, but this seems reasonable.
-        RNotice("Ignoring unlogged request due to abnormal status");
-        return;
-    }
 
-    ToClientMessage m;
-    UnloggedReplyMessage *reply = m.mutable_unlogged_reply();
-
-    Debug("Received unlogged request %s", (char *)msg.req().op().c_str());
-
-    ExecuteUnlogged(msg.req(), *reply);
-
-    if (!(transport->SendMessage(this, remote, PBMessage(m))))
-        Warning("Failed to send reply message");
-}
   
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
