@@ -1,7 +1,7 @@
 //replica logic on BF should be as lightweight as possible. All the slow path logic should be executed on Node10
 //We want to offload the extra tasks of a leader replica to BF, for example Send N Prepare messgare && Receive/Process N PrepareOK)
 /*
- * The RDMA server side part of code. 
+ * The RDMA server client part of code. 
  *
  * Author: Animesh Trivedi 
  *         atrivedi@apache.org 
@@ -52,7 +52,7 @@ static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
 static struct ibv_sge client_send_sge, server_recv_sge;
 /* Source and Destination buffers, where RDMA operations source and sink */
 static char *src = NULL, *dst = NULL; 
-
+	
   
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 VRReplica::VRReplica(Configuration config, int myIdx,
