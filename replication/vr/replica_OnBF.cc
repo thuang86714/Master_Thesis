@@ -118,8 +118,50 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         SendRecoveryMessages();
         recoveryTimeout->Start();
     }
+	//bellow are for RDMA client
+	// Hard-coded the destination address
+	const char RDMA_SERVER_ADDR = 10.1.0.4;
+	struct sockaddr_in server_sockaddr;
+	int ret, option;
+	bzero(&server_sockaddr, sizeof server_sockaddr);
+	server_sockaddr.sin_family = AF_INET;
+	server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	/* buffers are NULL */
+	src = dst = NULL; 
+	//For loop maybe?
+	//set address
+	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
+	if (ret) {
+					rdma_error("Invalid IP \n");
+					return ret;
+				}
+	//set port
+	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
+	//
+	ret = client_prepare_connection(&server_sockaddr);
+	if (ret) { 
+		rdma_error("Failed to setup client connection , ret = %d \n", ret);
+		return ret;
+	 }
+	ret = client_pre_post_recv_buffer(); 
+	if (ret) { 
+		rdma_error("Failed to setup client connection , ret = %d \n", ret);
+		return ret;
+	}
+	ret = client_connect_to_server();
+	if (ret) { 
+		rdma_error("Failed to setup client connection , ret = %d \n", ret);
+		return ret;
+	}
+	ret = client_xchange_metadata_with_server();
+	if (ret) {
+		rdma_error("Failed to setup client connection , ret = %d \n", ret);
+		return ret;
+	}
+	
 }
 
+		
 //destructor should not need any change
 VRReplica::~VRReplica()
 {
@@ -136,6 +178,7 @@ VRReplica::~VRReplica()
     for (auto &kv : pendingPrepares) {
         delete kv.first;
     }
+	client_disconnect_and_clean();
 }
 
 //fast-path && non-leader
@@ -434,6 +477,11 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 	    
 	//the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
         CommitUpTo(msg.opnum());
+		ret = client_remote_memory_ops();
+	if (ret) {
+		rdma_error("Failed to finish remote memory ops, ret = %d \n", ret);
+		return ret;
+	}
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
             return;
@@ -465,3 +513,141 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         }
     }
 }
+
+static int client_prepare_connection(struct sockaddr_in *s_addr)
+{
+	struct rdma_cm_event *cm_event = NULL;
+	int ret = -1;
+	/*  Open a channel used to report asynchronous communication event */
+	cm_event_channel = rdma_create_event_channel();
+	if (!cm_event_channel) {
+		rdma_error("Creating cm event channel failed, errno: %d \n", -errno);
+		return -errno;
+	}
+	debug("RDMA CM event channel is created at : %p \n", cm_event_channel);
+	/* rdma_cm_id is the connection identifier (like socket) which is used 
+	 * to define an RDMA connection. 
+	 */
+	ret = rdma_create_id(cm_event_channel, &cm_client_id, 
+			NULL,
+			RDMA_PS_TCP);
+	if (ret) {
+		rdma_error("Creating cm id failed with errno: %d \n", -errno); 
+		return -errno;
+	}
+	/* Resolve destination and optional source addresses from IP addresses  to
+	 * an RDMA address.  If successful, the specified rdma_cm_id will be bound
+	 * to a local device. */
+	ret = rdma_resolve_addr(cm_client_id, NULL, (struct sockaddr*) s_addr, 2000);
+	if (ret) {
+		rdma_error("Failed to resolve address, errno: %d \n", -errno);
+		return -errno;
+	}
+	debug("waiting for cm event: RDMA_CM_EVENT_ADDR_RESOLVED\n");
+	ret  = process_rdma_cm_event(cm_event_channel, 
+			RDMA_CM_EVENT_ADDR_RESOLVED,
+			&cm_event);
+	if (ret) {
+		rdma_error("Failed to receive a valid event, ret = %d \n", ret);
+		return ret;
+	}
+	/* we ack the event */
+	ret = rdma_ack_cm_event(cm_event);
+	if (ret) {
+		rdma_error("Failed to acknowledge the CM event, errno: %d\n", -errno);
+		return -errno;
+	}
+	debug("RDMA address is resolved \n");
+
+	 /* Resolves an RDMA route to the destination address in order to 
+	  * establish a connection */
+	ret = rdma_resolve_route(cm_client_id, 2000);
+	if (ret) {
+		rdma_error("Failed to resolve route, erno: %d \n", -errno);
+	       return -errno;
+	}
+	debug("waiting for cm event: RDMA_CM_EVENT_ROUTE_RESOLVED\n");
+	ret = process_rdma_cm_event(cm_event_channel, 
+			RDMA_CM_EVENT_ROUTE_RESOLVED,
+			&cm_event);
+	if (ret) {
+		rdma_error("Failed to receive a valid event, ret = %d \n", ret);
+		return ret;
+	}
+	/* we ack the event */
+	ret = rdma_ack_cm_event(cm_event);
+	if (ret) {
+		rdma_error("Failed to acknowledge the CM event, errno: %d \n", -errno);
+		return -errno;
+	}
+	printf("Trying to connect to server at : %s port: %d \n", 
+			inet_ntoa(s_addr->sin_addr),
+			ntohs(s_addr->sin_port));
+	/* Protection Domain (PD) is similar to a "process abstraction" 
+	 * in the operating system. All resources are tied to a particular PD. 
+	 * And accessing recourses across PD will result in a protection fault.
+	 */
+	pd = ibv_alloc_pd(cm_client_id->verbs);
+	if (!pd) {
+		rdma_error("Failed to alloc pd, errno: %d \n", -errno);
+		return -errno;
+	}
+	debug("pd allocated at %p \n", pd);
+	/* Now we need a completion channel, were the I/O completion 
+	 * notifications are sent. Remember, this is different from connection 
+	 * management (CM) event notifications. 
+	 * A completion channel is also tied to an RDMA device, hence we will 
+	 * use cm_client_id->verbs. 
+	 */
+	io_completion_channel = ibv_create_comp_channel(cm_client_id->verbs);
+	if (!io_completion_channel) {
+		rdma_error("Failed to create IO completion event channel, errno: %d\n",
+			       -errno);
+	return -errno;
+	}
+	debug("completion event channel created at : %p \n", io_completion_channel);
+	/* Now we create a completion queue (CQ) where actual I/O 
+	 * completion metadata is placed. The metadata is packed into a structure 
+	 * called struct ibv_wc (wc = work completion). ibv_wc has detailed 
+	 * information about the work completion. An I/O request in RDMA world 
+	 * is called "work" ;) 
+	 */
+	client_cq = ibv_create_cq(cm_client_id->verbs /* which device*/, 
+			CQ_CAPACITY /* maximum capacity*/, 
+			NULL /* user context, not used here */,
+			io_completion_channel /* which IO completion channel */, 
+			0 /* signaling vector, not used here*/);
+	if (!client_cq) {
+		rdma_error("Failed to create CQ, errno: %d \n", -errno);
+		return -errno;
+	}
+	debug("CQ created at %p with %d elements \n", client_cq, client_cq->cqe);
+	ret = ibv_req_notify_cq(client_cq, 0);
+	if (ret) {
+		rdma_error("Failed to request notifications, errno: %d\n", -errno);
+		return -errno;
+	}
+       /* Now the last step, set up the queue pair (send, recv) queues and their capacity.
+         * The capacity here is define statically but this can be probed from the 
+	 * device. We just use a small number as defined in rdma_common.h */
+       bzero(&qp_init_attr, sizeof qp_init_attr);
+       qp_init_attr.cap.max_recv_sge = MAX_SGE; /* Maximum SGE per receive posting */
+       qp_init_attr.cap.max_recv_wr = MAX_WR; /* Maximum receive posting capacity */
+       qp_init_attr.cap.max_send_sge = MAX_SGE; /* Maximum SGE per send posting */
+       qp_init_attr.cap.max_send_wr = MAX_WR; /* Maximum send posting capacity */
+       qp_init_attr.qp_type = IBV_QPT_RC; /* QP type, RC = Reliable connection */
+       /* We use same completion queue, but one can use different queues */
+       qp_init_attr.recv_cq = client_cq; /* Where should I notify for receive completion operations */
+       qp_init_attr.send_cq = client_cq; /* Where should I notify for send completion operations */
+       /*Lets create a QP */
+       ret = rdma_create_qp(cm_client_id /* which connection id */,
+		       pd /* which protection domain*/,
+		       &qp_init_attr /* Initial attributes */);
+	if (ret) {
+		rdma_error("Failed to create QP, errno: %d \n", -errno);
+	       return -errno;
+	}
+	client_qp = cm_client_id->qp;
+	debug("QP created at %p \n", client_qp);
+	return 0;
+}				  
