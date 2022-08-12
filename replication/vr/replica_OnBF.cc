@@ -178,7 +178,7 @@ VRReplica::~VRReplica()
     for (auto &kv : pendingPrepares) {
         delete kv.first;
     }
-	client_disconnect_and_clean();
+    client_disconnect_and_clean();
 }
 
 //fast-path && non-leader
@@ -454,6 +454,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 
     if (msg.view() > this->view) {
         RequestStateTransfer();
+	    //Require a RDMA write
         return;
     }
 
@@ -495,8 +496,8 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
          */
         ToReplicaMessage m;
         CommitMessage *c = m.mutable_commit();
-        c->set_view(this->view);
-        c->set_opnum(this->lastCommitted);
+        c->set_view(this->view);//State Sync
+        c->set_opnum(this->lastCommitted);//State Sync
 
         if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
             RWarning("Failed to send COMMIT message to all replicas");
@@ -651,3 +652,197 @@ static int client_prepare_connection(struct sockaddr_in *s_addr)
 	debug("QP created at %p \n", client_qp);
 	return 0;
 }				  
+		  
+static int client_pre_post_recv_buffer()
+{
+	int ret = -1;
+	server_metadata_mr = rdma_buffer_register(pd,
+			&server_metadata_attr,
+			sizeof(server_metadata_attr),
+			(IBV_ACCESS_LOCAL_WRITE));
+	if(!server_metadata_mr){
+		rdma_error("Failed to setup the server metadata mr , -ENOMEM\n");
+		return -ENOMEM;
+	}
+	server_recv_sge.addr = (uint64_t) server_metadata_mr->addr;
+	server_recv_sge.length = (uint32_t) server_metadata_mr->length;
+	server_recv_sge.lkey = (uint32_t) server_metadata_mr->lkey;
+	/* now we link it to the request */
+	bzero(&server_recv_wr, sizeof(server_recv_wr));
+	server_recv_wr.sg_list = &server_recv_sge;
+	server_recv_wr.num_sge = 1;
+	ret = ibv_post_recv(client_qp /* which QP */,
+		      &server_recv_wr /* receive work request*/,
+		      &bad_server_recv_wr /* error WRs */);
+	if (ret) {
+		rdma_error("Failed to pre-post the receive buffer, errno: %d \n", ret);
+		return ret;
+	}
+	debug("Receive buffer pre-posting is successful \n");
+	return 0;
+}
+		  
+/* Connects to the RDMA server */
+static int client_connect_to_server() 
+{
+	struct rdma_conn_param conn_param;
+	struct rdma_cm_event *cm_event = NULL;
+	int ret = -1;
+	bzero(&conn_param, sizeof(conn_param));
+	conn_param.initiator_depth = 3;
+	conn_param.responder_resources = 3;
+	conn_param.retry_count = 3; // if fail, then how many times to retry
+	ret = rdma_connect(cm_client_id, &conn_param);
+	if (ret) {
+		rdma_error("Failed to connect to remote host , errno: %d\n", -errno);
+		return -errno;
+	}
+	debug("waiting for cm event: RDMA_CM_EVENT_ESTABLISHED\n");
+	ret = process_rdma_cm_event(cm_event_channel, 
+			RDMA_CM_EVENT_ESTABLISHED,
+			&cm_event);
+	if (ret) {
+		rdma_error("Failed to get cm event, ret = %d \n", ret);
+	       return ret;
+	}
+	ret = rdma_ack_cm_event(cm_event);
+	if (ret) {
+		rdma_error("Failed to acknowledge cm event, errno: %d\n", 
+			       -errno);
+		return -errno;
+	}
+	printf("The client is connected successfully \n");
+	return 0;
+}
+		  
+/* Exchange buffer metadata with the server. The client sends its, and then receives
+ * from the server. The client-side metadata on the server is _not_ used because
+ * this program is client driven. But it shown here how to do it for the illustration
+ * purposes
+ */
+static int client_xchange_metadata_with_server()
+{
+	struct ibv_wc wc[2];
+	int ret = -1;
+	client_src_mr = rdma_buffer_register(pd,
+			src,
+			sizeof(src), //orginal code was strlen()
+			(IBV_ACCESS_LOCAL_WRITE|
+			 IBV_ACCESS_REMOTE_READ|
+			 IBV_ACCESS_REMOTE_WRITE));
+	if(!client_src_mr){
+		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
+		return ret;
+	}
+	/* we prepare metadata for the first buffer */
+	client_metadata_attr.address = (uint64_t) client_src_mr->addr; 
+	client_metadata_attr.length = client_src_mr->length; 
+	client_metadata_attr.stag.local_stag = client_src_mr->lkey;
+	/* now we register the metadata memory */
+	client_metadata_mr = rdma_buffer_register(pd,
+			&client_metadata_attr,
+			sizeof(client_metadata_attr),
+			IBV_ACCESS_LOCAL_WRITE);
+	if(!client_metadata_mr) {
+		rdma_error("Failed to register the client metadata buffer, ret = %d \n", ret);
+		return ret;
+	}
+	/* now we fill up SGE */
+	client_send_sge.addr = (uint64_t) client_metadata_mr->addr;
+	client_send_sge.length = (uint32_t) client_metadata_mr->length;
+	client_send_sge.lkey = client_metadata_mr->lkey;
+	/* now we link to the send work request */
+	bzero(&client_send_wr, sizeof(client_send_wr));
+	client_send_wr.sg_list = &client_send_sge;
+	client_send_wr.num_sge = 1;
+	client_send_wr.opcode = IBV_WR_SEND;
+	client_send_wr.send_flags = IBV_SEND_SIGNALED;
+	/* Now we post it */
+	ret = ibv_post_send(client_qp, 
+		       &client_send_wr,
+	       &bad_client_send_wr);
+	if (ret) {
+		rdma_error("Failed to send client metadata, errno: %d \n", 
+				-errno);
+		return -errno;
+	}
+	/* at this point we are expecting 2 work completion. One for our 
+	 * send and one for recv that we will get from the server for 
+	 * its buffer information */
+	ret = process_work_completion_events(io_completion_channel, 
+			wc, 2);
+	if(ret != 2) {
+		rdma_error("We failed to get 2 work completions , ret = %d \n",
+				ret);
+		return ret;
+	}
+	debug("Server sent us its buffer location and credentials, showing \n");
+	show_rdma_buffer_attr(&server_metadata_attr);
+	return 0;
+}
+		  
+/* This function disconnects the RDMA connection from the server and cleans up 
+ * all the resources.
+ */
+static int client_disconnect_and_clean()
+{
+	struct rdma_cm_event *cm_event = NULL;
+	int ret = -1;
+	/* active disconnect from the client side */
+	ret = rdma_disconnect(cm_client_id);
+	if (ret) {
+		rdma_error("Failed to disconnect, errno: %d \n", -errno);
+		//continuing anyways
+	}
+	ret = process_rdma_cm_event(cm_event_channel, 
+			RDMA_CM_EVENT_DISCONNECTED,
+			&cm_event);
+	if (ret) {
+		rdma_error("Failed to get RDMA_CM_EVENT_DISCONNECTED event, ret = %d\n",
+				ret);
+		//continuing anyways 
+	}
+	ret = rdma_ack_cm_event(cm_event);
+	if (ret) {
+		rdma_error("Failed to acknowledge cm event, errno: %d\n", 
+			       -errno);
+		//continuing anyways
+	}
+	/* Destroy QP */
+	rdma_destroy_qp(cm_client_id);
+	/* Destroy client cm id */
+	ret = rdma_destroy_id(cm_client_id);
+	if (ret) {
+		rdma_error("Failed to destroy client id cleanly, %d \n", -errno);
+		// we continue anyways;
+	}
+	/* Destroy CQ */
+	ret = ibv_destroy_cq(client_cq);
+	if (ret) {
+		rdma_error("Failed to destroy completion queue cleanly, %d \n", -errno);
+		// we continue anyways;
+	}
+	/* Destroy completion channel */
+	ret = ibv_destroy_comp_channel(io_completion_channel);
+	if (ret) {
+		rdma_error("Failed to destroy completion channel cleanly, %d \n", -errno);
+		// we continue anyways;
+	}
+	/* Destroy memory buffers */
+	rdma_buffer_deregister(server_metadata_mr);
+	rdma_buffer_deregister(client_metadata_mr);	
+	rdma_buffer_deregister(client_src_mr);	
+	rdma_buffer_deregister(client_dst_mr);	
+	/* We free the buffers */
+	free(src);
+	free(dst);
+	/* Destroy protection domain */
+	ret = ibv_dealloc_pd(pd);
+	if (ret) {
+		rdma_error("Failed to destroy client protection domain cleanly, %d \n", -errno);
+		// we continue anyways;
+	}
+	rdma_destroy_event_channel(cm_event_channel);
+	printf("Client resource clean up is complete \n");
+	return 0;
+}
