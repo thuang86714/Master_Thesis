@@ -137,22 +137,25 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 				}
 	//set port
 	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
-	//
+	///* This function prepares client side connection resources for an RDMA connection */
 	ret = client_prepare_connection(&server_sockaddr);
 	if (ret) { 
 		rdma_error("Failed to setup client connection , ret = %d \n", ret);
 		return ret;
 	 }
+	/* Pre-posts a receive buffer before calling rdma_connect () */
 	ret = client_pre_post_recv_buffer(); 
 	if (ret) { 
 		rdma_error("Failed to setup client connection , ret = %d \n", ret);
 		return ret;
 	}
+	/* Connects to the RDMA server */
 	ret = client_connect_to_server();
 	if (ret) { 
 		rdma_error("Failed to setup client connection , ret = %d \n", ret);
 		return ret;
 	}
+	//Exchange buffer metadata with the server.
 	ret = client_xchange_metadata_with_server();
 	if (ret) {
 		rdma_error("Failed to setup client connection , ret = %d \n", ret);
