@@ -23,6 +23,10 @@
 
 #include "rdma_common.h"
 
+#define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RWarning(fmt, ...) Warning("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RPanic(fmt, ...) Panic("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
 namespace dsnet {
 namespace vr {
 
@@ -125,6 +129,7 @@ VRReplica::~VRReplica()
     for (auto &kv : pendingPrepares) {
         delete kv.first;
     }
+    disconnect_and_cleanup()
 }
 
 uint64_t
@@ -136,11 +141,11 @@ VRReplica::GenerateNonce() const
     return dis(gen);
 }
 
-bool
-VRReplica::AmLeader() const
-{
-    return (configuration.GetLeaderIndex(view) == this->replicaIdx);
-}
+//bool
+//VRReplica::AmLeader() const
+//{
+  //  return (configuration.GetLeaderIndex(view) == this->replicaIdx);
+//}
 
 void
 VRReplica::CommitUpTo(opnum_t upto)
@@ -365,6 +370,7 @@ VRReplica::ResendPrepare()
     }
 }
 
+/*
 void
 VRReplica::CloseBatch()
 {
@@ -376,7 +382,7 @@ VRReplica::CloseBatch()
     RDebug("Sending batched prepare from " FMT_OPNUM
            " to " FMT_OPNUM,
            batchStart, lastOp);
-    /* Send prepare messages */
+    /* Send prepare messages 
     PrepareMessage *p = lastPrepare.mutable_prepare();
     p->set_view(view);
     p->set_opnum(lastOp);
@@ -401,6 +407,7 @@ VRReplica::CloseBatch()
     resendPrepareTimeout->Reset();
     closeBatchTimeout->Stop();
 }
+    */
 
 void
 VRReplica::ReceiveMessage(const TransportAddress &remote,
@@ -455,6 +462,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
     }
 }
 
+/*
 void
 VRReplica::HandleRequest(const TransportAddress &remote,
                          const RequestMessage &msg)
@@ -541,14 +549,14 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         request.set_clientid(msg.req().clientid());
         request.set_clientreqid(msg.req().clientreqid());
 
-        /* Assign it an opnum */
+        /* Assign it an opnum 
         ++this->lastOp;
         v.view = this->view;
         v.opnum = this->lastOp;
 
         RDebug("Received REQUEST, assigning " FMT_VIEWSTAMP, VA_VIEWSTAMP(v));
 
-        /* Add the request to my log */
+        /* Add the request to my log 
         log.Append(new LogEntry(v, LOG_STATE_PREPARED, request));
 
         if (batchComplete ||
@@ -565,6 +573,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         Latency_End(&requestLatency);
     }
 }
+*/
 
 void
 VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
@@ -669,6 +678,7 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
     }
 }
 
+/*
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
                            const PrepareOKMessage &msg)
@@ -709,7 +719,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
          * we just won't do anything.)
          *
          * This also notifies the client of the result.
-         */
+         
         CommitUpTo(msg.opnum());
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
@@ -721,7 +731,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
          *
          * This can be done asynchronously, so it really ought to be
          * piggybacked on the next PREPARE or something.
-         */
+         
         ToReplicaMessage m;
         CommitMessage *c = m.mutable_commit();
         c->set_view(this->view);
@@ -742,7 +752,8 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         }
     }
 }
-
+*/
+    
 void
 VRReplica::HandleCommit(const TransportAddress &remote,
                         const CommitMessage &msg)
@@ -1198,8 +1209,65 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
     }
 }
 
-} // namespace dsnet::vr
-} // namespace dsnet
+} 
+} 
 
 //make main constantly listening on certain addr and port
-main
+int main(int argc, char **argv) 
+{
+	int ret, option;
+	struct sockaddr_in server_sockaddr;
+	bzero(&server_sockaddr, sizeof server_sockaddr);
+	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
+	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
+	/* Parse Command Line Arguments, not the most reliable code */
+	while ((option = getopt(argc, argv, "a:p:")) != -1) {
+		switch (option) {
+			case 'a':
+				/* Remember, this will overwrite the port info */
+				ret = get_addr(optarg, (struct sockaddr*) &server_sockaddr);
+				if (ret) {
+					rdma_error("Invalid IP \n");
+					 return ret;
+				}
+				break;
+			case 'p':
+				/* passed port to listen on */
+				server_sockaddr.sin_port = htons(strtol(optarg, NULL, 0)); 
+				break;
+			default:
+				usage();
+				break;
+		}
+	}
+	if(!server_sockaddr.sin_port) {
+		/* If still zero, that mean no port info provided */
+		server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT); /* use default port */
+	 }
+	ret = start_rdma_server(&server_sockaddr);
+	if (ret) {
+		rdma_error("RDMA server failed to start cleanly, ret = %d \n", ret);
+		return ret;
+	}
+	ret = setup_client_resources();
+	if (ret) { 
+		rdma_error("Failed to setup client resources, ret = %d \n", ret);
+		return ret;
+	}
+	ret = accept_client_connection();
+	if (ret) {
+		rdma_error("Failed to handle client cleanly, ret = %d \n", ret);
+		return ret;
+	}
+	ret = send_server_metadata_to_client();
+	if (ret) {
+		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
+		return ret;
+	}
+	ret = disconnect_and_cleanup();
+	if (ret) { 
+		rdma_error("Failed to clean up resources properly, ret = %d \n", ret);
+		return ret;
+	}
+	return 0;
+}
