@@ -122,20 +122,22 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	// Hard-coded the destination address
 	const char RDMA_SERVER_ADDR = 10.1.0.4;
 	struct sockaddr_in server_sockaddr;
-	int ret, option;
+	int ret;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET;
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	/* buffers are NULL */
 	src = dst = NULL; 
-	//For loop maybe?
+	src = malloc(1073741824); //=1GB, would that cause overflow? (Q1
+	dst = malloc(1073741824); //hardcoded every RDMA read and write for 1 GB (MAX Capacity is 2GB), 
+        //would this amount of capacity affect performance?
 	//set address
 	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
 	if (ret) {
 					rdma_error("Invalid IP \n");
 					return ret;
 				}
-	//set port
+	//set to default port
 	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
 	///* This function prepares client side connection resources for an RDMA connection */
 	ret = client_prepare_connection(&server_sockaddr);
@@ -255,8 +257,6 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
     static PBMessage m(replica_msg);
 
     m.Parse(buf, size);
-    src = NULL;
-    msgtype = NULL;
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:
             //HandleRequest is leader-replica-specific task, should remain on BF 
@@ -264,146 +264,127 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             break;
 	case ToReplicaMessage::MsgCase::kPrepareOk:
             //HandleRequest is leader-replica-specific task, should remain on BF 
+            HandlePrepareOK(remote, replica_msg.prepare_ok());
 	    break;
 	//all cases below should be executed on the Host
         case ToReplicaMessage::MsgCase::kUnloggedRequest:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleUnloggedRequest(remote, replica_msg.unlogged_request());
-	    src = calloc(sizeof(remote),1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(src, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.unlogged_request()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kPrepare:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandlePrepare(remote, replica_msg.prepare());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.prepare()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kCommit:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleCommit(remote, replica_msg.commit());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.commit()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.commit(), sizeof(replica_msg.commit()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.request_state_transfer()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kStateTransfer:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStateTransfer(remote, replica_msg.state_transfer());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.state_transfer()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kStartViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStartViewChange(remote, replica_msg.start_view_change());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.start_view_change()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kDoViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleDoViewChange(remote, replica_msg.do_view_change());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.do_view_change()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kStartView:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartView(remote, replica_msg.start_view());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.start_view()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kRecovery:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecovery(remote, replica_msg.recovery());
-            src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+            memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.recovery()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecoveryResponse(remote, replica_msg.recovery_response());
-	    src = calloc(sizeof(remote),1);
-	    memcpy(src, remote, sizeof(remote));
+	    memset(src, 0, sizeof(src));
+	    memcpy(rmt, remote, sizeof(remote));
 	    client_rdma_remote_write();
-	    free(src);
 	    //there's problem here, how to do server side notification when write is done
-	    msgtype = calloc(sizeof(replica_msg.recovery_response()), 1);
+	    memset(src, 0, sizeof(src));
 	    memcpy(msgtype, replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    client_rdma_remote_write();//there's problem here, server side notification
-	    free(msgtype);
 	    client_rdma_remote_read();
             break;
         default:
@@ -468,10 +449,10 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             }
         }
     }
-    ct = NULL;
+    
     // Update the client table
     UpdateClientTable(msg.req());
-    ct = calloc(sizeof(msg.req()), 1);
+    memset(src, 0, sizeof(src));
     memcpy(ct, msg.req(), sizeof(msg.req()));
     client_rdma_remote_write();
 
@@ -878,7 +859,8 @@ static int client_xchange_metadata_with_server()
 
 //orignially this function include 1st RDMA Write from client to server + 2nd RDMA Read from client to server (execute as ordered)
 //I will divide the function into 2 separate function, RDMA Write & RDMA Read
-//
+//Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation. 
+//But according to Page 106, Mellanox Verbs Programming Tutorial (by Dotan Barak) , atomic operation is performance killer
 static int client_rdma_remote_write() 
 {
 	struct ibv_wc wc;
