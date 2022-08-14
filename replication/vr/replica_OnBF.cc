@@ -129,7 +129,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	/* buffers are NULL */
 	src = dst = NULL; 
 	src = malloc(1073741824); //=1GB, would that cause overflow? (Q1
-	dst = malloc(1073741824); //hardcoded every RDMA read and write for 1 GB (MAX Capacity is 2GB), 
+	dst = malloc(1073741824); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
         //would this amount of capacity affect performance?
 	//set address
 	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
@@ -163,7 +163,26 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 		rdma_error("Failed to setup client connection , ret = %d \n", ret);
 		return ret;
 	}
-	
+	//RDMA write for registration; (Configuration config, int myIdx,bool initialize,
+	//Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
+        memset(src, 0, sizeof(src));
+	memcpy(src, &config, sizeof(config));
+	client_rdma_remote_write();
+	memset(src, 0, sizeof(src));//there's problem here, server side notification
+	memcpy(src, &myIdx, sizeof(myIdx));
+	client_rdma_remote_write();
+	memset(src, 0, sizeof(src));//there's problem here, server side notification
+        memcpy(src, &initialize, sizeof(initialize));
+	client_rdma_remote_write();
+	memset(src, 0, sizeof(src));//there's problem here, server side notification
+        memcpy(src, transport, sizeof(*transport)); //dereference transport
+        client_rdma_remote_write();
+        //Hard-coding Batchsize
+	memset(src, 0, sizeof(src));//there's problem here, server side notification
+        memcpy(src, app, sizeof(*app));//dereference app
+        client_rdma_remote_write();
+	    
+		  
 }
 
 		
