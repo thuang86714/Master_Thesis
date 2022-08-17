@@ -147,8 +147,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	/* buffers are NULL */
 	src = dst = NULL; 
-	src = malloc(1073741824); //=1GB, would that cause overflow? (Q1
-	dst = malloc(1073741824); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+	src = calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
+	dst = calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
         //would this amount of capacity affect performance?
 	//set address
 	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
