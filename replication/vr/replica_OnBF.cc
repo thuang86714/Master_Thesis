@@ -71,7 +71,7 @@ static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
 static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
 static struct ibv_sge client_send_sge, server_recv_sge;
 /* Source and Destination buffers, where RDMA operations source and sink */
-static char *src = NULL, *dst = NULL; 
+static char *src = NULL, *dst = NULL; *type = NULL;
 	
   
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
@@ -150,7 +150,6 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	src = dst = NULL; 
 	src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
 	dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
-	char* type;
 	type = (char *)calloc(sizeof(char),1);
         //would this amount of capacity affect performance?
 	//set address
@@ -196,7 +195,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 		rdma_error("We failed to create the destination buffer, -ENOMEM\n");
 		return -ENOMEM;
 	}
-	/* Now w
+	
 	//RDMA write for registration; (Configuration config, int myIdx,bool initialize,
 	//Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
 	//send config
@@ -1042,8 +1041,6 @@ static int client_receive()
 	}
 	debug("Client side receive is complete \n");
 	*/
-        char* type;
-	type = (char *)calloc(sizeof(char),1);
 	memcpy(type, dst, 1);
 	switch(*type){
 		case 'Q':config
