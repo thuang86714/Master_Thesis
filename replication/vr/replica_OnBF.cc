@@ -39,7 +39,8 @@ from client to server           from server to client
 
 #include <algorithm>
 #include <random>
-
+#include <string.h>
+#include <stdio.h>
 //the next two lib are for RDMA
 #include "rdma_common.h"
 
@@ -149,6 +150,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	src = dst = NULL; 
 	src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
 	dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+	char* type;
+	type = (char *)calloc(sizeof(char),1);
         //would this amount of capacity affect performance?
 	//set address
 	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
@@ -193,6 +196,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 		rdma_error("We failed to create the destination buffer, -ENOMEM\n");
 		return -ENOMEM;
 	}
+	/* Now w
 	//RDMA write for registration; (Configuration config, int myIdx,bool initialize,
 	//Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
 	//send config
@@ -988,6 +992,7 @@ static int client_send()
 		return -errno;
 	}
 	/* at this point we are expecting 1 work completion for the write */
+	/*
 	ret = process_work_completion_events(io_completion_channel, 
 			&wc, 1);
 	if(ret != 1) {
@@ -996,23 +1001,15 @@ static int client_send()
 		return ret;
 	}
 	debug("Client side SEND is complete \n");
+	*/
+	memse(src, 0, sizeof());
 }
 
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
 static int client_receive()
 {
-	
-	int ret = -1;
-	client_dst_mr = rdma_buffer_register(pd,
-			dst,
-			strlen(src),
-			(IBV_ACCESS_LOCAL_WRITE | 
-			 IBV_ACCESS_REMOTE_WRITE | 
-			 IBV_ACCESS_REMOTE_READ));
-	if (!client_dst_mr) {
-		rdma_error("We failed to create the destination buffer, -ENOMEM\n");
-		return -ENOMEM;
-	}
+	memset(dst,0, sizeof(dst));
+	memset(type, 0, sizeof(type));
 	/* Now we prepare a READ using same variables but for destination */
 	client_send_sge.addr = (uint64_t) client_dst_mr->addr;
 	client_send_sge.length = (uint32_t) client_dst_mr->length;
@@ -1035,7 +1032,7 @@ static int client_receive()
 				-errno);
 		return -errno;
 	}
-	/* at this point we are expecting 1 work completion for the write */
+	/* at this point we are expecting 1 work completion for the write 
 	ret = process_work_completion_events(io_completion_channel, 
 			&wc, 1);
 	if(ret != 1) {
@@ -1044,24 +1041,28 @@ static int client_receive()
 		return ret;
 	}
 	debug("Client side receive is complete \n");
-	switch(){
-		case '10000':config
+	*/
+        char* type;
+	type = (char *)calloc(sizeof(char),1);
+	memcpy(type, dst, 1);
+	switch(*type){
+		case 'Q':config
 		    break;
-		case '10001':index
+		case 'R':index
 		    break;
-		case '10010':view-num
+		case 'S':view-num
 		    break;
-		case '10100':status
+		case 'T':status
 		    break;
-		case '11000':op-num
+		case 'U':op-num
 		    break;
-		case '11001':log
+		case 'V':log
 		    break;
-		case '11010':commit-num
+		case 'W':commit-num
 		    break;
-		case '11100':client-num
+		case 'X':client-table
 		    break;
-		case '11111':ack
+		case 'Y':ack
 		    break;
 		
 	}
