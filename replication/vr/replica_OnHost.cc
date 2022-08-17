@@ -68,7 +68,8 @@ static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
 static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
 static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
 static struct ibv_sge client_recv_sge, server_send_sge;
-    
+static char *src = NULL, *dst = NULL; *type = NULL;
+	
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
@@ -1660,35 +1661,18 @@ static int server_receive(){
 //make main constantly listening on certain addr and port
 int main(int argc, char **argv) 
 {
-	int ret, option;
+	int ret;
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
-	/* Parse Command Line Arguments, not the most reliable code */
-	while ((option = getopt(argc, argv, "a:p:")) != -1) {
-		switch (option) {
-			case 'a':
-				/* Remember, this will overwrite the port info */
-				ret = get_addr(optarg, (struct sockaddr*) &server_sockaddr);
-				if (ret) {
-					rdma_error("Invalid IP \n");
-					 return ret;
-				}
-				break;
-			case 'p':
-				/* passed port to listen on */
-				server_sockaddr.sin_port = htons(strtol(optarg, NULL, 0)); 
-				break;
-			default:
-				usage();
-				break;
-		}
+	const char RDMA_CLIENT_ADDR = 10.1.0.7;
+	ret = get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
+	if (ret) {
+		rdma_error("Invalid IP \n");
+		return ret;
 	}
-	if(!server_sockaddr.sin_port) {
-		/* If still zero, that mean no port info provided */
-		server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT); /* use default port */
-	 }
+	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT); /* use default port */
 	ret = start_rdma_server(&server_sockaddr);
 	if (ret) {
 		rdma_error("RDMA server failed to start cleanly, ret = %d \n", ret);
@@ -1709,10 +1693,6 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	ret = disconnect_and_cleanup();
-	if (ret) { 
-		rdma_error("Failed to clean up resources properly, ret = %d \n", ret);
-		return ret;
-	}
+	
 	return 0;
 }
