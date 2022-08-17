@@ -8,6 +8,25 @@
  *
  * TODO: Cleanup previously allocated resources in case of an error condition
  */
+/*
+from client to server           from server to client
+00000 config                    10000 config
+00001 myIdx                     10001 myIdx
+00010 initialize                10010 view-num
+00100 transport                 10100 status
+01000 nullApp                   11000 op-num
+00011 UnloggedRequest           11001 log
+00101 Prepare                   11010 commit-num
+01001 commit                    11100 client-table
+00110 RequestStateTransfer
+01100 StateTransfer
+01010 StartViewChange
+00111 DoViewChange
+01011 StartView
+01101 Recovery
+01110 RecoveryResponse
+01111 Remote
+*/
 #include "common/replica.h"
 #include "replication/vr/replica.h"
 
