@@ -1619,7 +1619,44 @@ static int disconnect_and_cleanup()
 	printf("Server shut-down is complete \n");
 	return 0;
 }
-
+static int server_receive(){
+    	memcpy(type, dst, 1);
+	switch(*type){
+		case 'a':config
+		    break;
+		case 'b':index
+		    break;
+		case 'c':initialize
+		    break;
+		case 'd':transport
+		    break;
+		case 'e':nullApp
+		    break;
+		case 'f':UnloggedRequest
+		    break;
+		case 'g':prepare
+		    break;
+		case 'h':commit
+		    break;
+		case 'i':RequestStateTransfer
+		    break;
+	        case 'j':StateTransfer
+		    break;
+	        case 'k':StartViewChange
+		    break;
+		case 'l':DoViewChange
+		    break;
+		case 'm':StartView
+		    break;
+		case 'n':Recovery
+		    break;
+		case 'o':RecoveryResponse
+		    break;
+		case 'p':remote
+		    break;
+		
+	}
+}
 //make main constantly listening on certain addr and port
 int main(int argc, char **argv) 
 {
