@@ -1632,6 +1632,8 @@ static int server_receive(){
 	switch(*type){
 		case 'a':config
 		    break;
+		case 'A':config
+		    break;
 		case 'b':index
 		    break;
 		case 'c':initialize
@@ -1641,13 +1643,13 @@ static int server_receive(){
 		case 'e':nullApp
 		    break;
 		case 'f':UnloggedRequest
-			//HandleUnlogged()
+			
 		    break;
 		case 'g':prepare
-			//HandlePrepare
+			
 		    break;
 		case 'h':commit
-			//
+			
 		    break;
 		case 'i':RequestStateTransfer
 		    break;
@@ -1664,6 +1666,31 @@ static int server_receive(){
 		case 'o':RecoveryResponse
 		    break;
 		case 'p':remote
+		    break;
+		case 'F':UnloggedRequest
+			//HandleUnlogged()
+		    break;
+		case 'G':prepare
+			//HandlePrepare()
+		    break;
+		case 'H':commit
+			//
+		    break;
+		case 'I':RequestStateTransfer
+		    break;
+	        case 'J':StateTransfer
+		    break;
+	        case 'K':StartViewChange
+		    break;
+		case 'L':DoViewChange
+		    break;
+		case 'M':StartView
+		    break;
+		case 'N':Recovery
+		    break;
+		case 'O':RecoveryResponse
+		    break;
+		case 'P':remote
 		    break;
 		
 	}
