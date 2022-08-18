@@ -26,6 +26,17 @@ from client to server           from server to client
 'n' Recovery
 'o' RecoveryResponse
 'p' Remote
+'A' config+myIdx+initialize+transport+nullApp
+'F' remote+Unlogged
+'G' remote+Prepare
+'H' remote+Commit
+'I' remote+RequestStateTransfer
+'J' remote+StateTransfer
+'K' remote+StartViewChange
+'L' remote+DoViewChange
+'M' remote+StartView
+'N' remote+Recovery
+'O' remote+RecoveryResponse
 */
 #include "common/replica.h"
 #include "replication/vr/replica.h"
@@ -200,33 +211,16 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 	//Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
 	//send config
         memset(src, 0, sizeof(src));
-	memset(src, 'a', 1);
+	memset(src, 'A', 1);
 	memcpy(src+1, &config, sizeof(config));
-	client_send();
-        client_receive();
-        ret = process_work_completion_events(io_completion_channel, wc, 2);
-	//send myIdx
-	memset(src, 'b', 1);
-	memcpy(src+1, &myIdx, sizeof(myIdx));
-	client_send();
-	client_receive();
-	ret = process_work_completion_events(io_completion_channel, wc, 2);
-	//send initialize
-	memset(src, 'c', 1);
-        memcpy(src+1, &initialize, sizeof(initialize));
-	client_send();
-	client_receive();
-	ret = process_work_completion_events(io_completion_channel, wc, 2);
-	//send transport
-	memset(src, 'd', 1);
-        memcpy(src+1, transport, sizeof(*transport)); //dereference transport
-        client_send();
-	client_receive();
-	ret = process_work_completion_events(io_completion_channel, wc, 2);
-        //Hard-coding Batchsize
-	//send app
-	memset(src, 'e', 1);
-        memcpy(src+1, app, sizeof(*app));//dereference app
+	//copy myIdx
+	memcpy(src+1+sizeof(config), &myIdx, sizeof(myIdx));
+	//copy initialize
+        memcpy(src+1+sizeof(config)+sizeof(myIdx), &initialize, sizeof(initialize));
+	//copy transport
+        memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize), transport, sizeof(*transport)); //dereference transport
+        //copy app
+        memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
         client_send();
 	client_recieve();
 	ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -339,14 +333,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleUnloggedRequest(remote, replica_msg.unlogged_request());
 	    //send remote
-	    memset(src, 'p', 1);
+	    memset(src, 'F', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //send unlog
-	    memset(src, 'f', 1);
-	    memcpy(src+1, replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
+	    //copy unlog req
+	    memcpy(src+1+sizeof(remote), replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -355,14 +345,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandlePrepare(remote, replica_msg.prepare());
 	    //send remote
-	    memset(src, 'p', 1);
+	    memset(src, 'G', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //send prepare
-	    memset(src, 'g', 1);
-	    memcpy(src+1, replica_msg.prepare(), sizeof(replica_msg.prepare()));
+	    //prepare
+	    memcpy(src+1+sizeof(remote), replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -371,14 +357,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleCommit(remote, replica_msg.commit());
 	    //send remote
-	    memset(src, 'p', 1);
+	    memset(src, 'H', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //send commit
-	    memset(src, 'h', 1);
-	    memcpy(src+1, replica_msg.commit(), sizeof(replica_msg.commit()));
+	    //commit
+	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -387,14 +369,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
 	    //send remote
-	    memset(src, 'p', 1);
+	    memset(src, 'I', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //send request_state_transfer
-	    memset(src, 'i', 1);
-	    memcpy(src+1, replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
+	    //req state transfer
+	    memcpy(src+1+sizeof(remote), replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -403,13 +381,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStateTransfer(remote, replica_msg.state_transfer());
 	    //send remote
-	    memset(src, 'p', 1);
+	    memset(src, 'J', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    memset(src, 'j', 1);
-	    memcpy(src+1, replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
+	    //state transfer
+	    memcpy(src+1+sizeof(remote), replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -417,14 +392,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kStartViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStartViewChange(remote, replica_msg.start_view_change());
-	    memset(src, 'p', 1);
+	    memset(src, 'K', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //send start_view_change
-	    memset(src, 'k', 1);
-	    memcpy(src+1, replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
+	    //start view change
+	    memcpy(src+1+sizeof(remote), replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -432,14 +403,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kDoViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleDoViewChange(remote, replica_msg.do_view_change());
-	    memset(src, 'p', 1);
+	    memset(src, 'L', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //there's problem here, how to do server side notification when write is done
-	    memset(src, 'l', 1);
-	    memcpy(src+1, replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
+	    //do view change
+	    memcpy(src+1+sizeof(remote), replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -447,14 +414,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kStartView:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartView(remote, replica_msg.start_view());
-	    memset(src, 'p', 1);
+	    memset(src, 'M', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    cclient_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //there's problem here, how to do server side notification when write is done
-	    memset(src, 'm', 1);
-	    memcpy(src+1, replica_msg.start_view(), sizeof(replica_msg.start_view()));
+	    //Start view
+	    memcpy(src+1+sizeof(remote), replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -462,14 +425,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kRecovery:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecovery(remote, replica_msg.recovery());
-	    memset(src, 'p', 1);
+	    memset(src, 'N', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //there's problem here, how to do server side notification when write is done
-	    memset(src, 'n', 1);
-	    memcpy(src+1, replica_msg.recovery(), sizeof(replica_msg.recovery()));
+	    //recovery
+	    memcpy(src+1+sizeof(remote), replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    client_send();
 	    client_recieve();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
@@ -477,13 +436,9 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecoveryResponse(remote, replica_msg.recovery_response());
-	    memset(src, 'p', 1);
+	    memset(src, 'O', 1);
 	    memcpy(src+1, remote, sizeof(remote));
-	    client_send();
-	    client_recieve();
-	    ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    //there's problem here, how to do server side notification when write is done
-	    memset(src, 'o', 1);
+	    //recovery response
 	    memcpy(src+1, replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    client_send();
 	    client_recieve();
