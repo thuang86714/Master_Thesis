@@ -1620,7 +1620,14 @@ static int disconnect_and_cleanup()
 	printf("Server shut-down is complete \n");
 	return 0;
 }
+	
+static int server_send(){
+}
+	
 static int server_receive(){
+	memset(dst,0, sizeof(dst));
+	memset(type, 0, sizeof(type));
+	//ibv_post_recv();
     	memcpy(type, dst, 1);
 	switch(*type){
 		case 'a':config
@@ -1634,10 +1641,13 @@ static int server_receive(){
 		case 'e':nullApp
 		    break;
 		case 'f':UnloggedRequest
+			//HandleUnlogged()
 		    break;
 		case 'g':prepare
+			//HandlePrepare
 		    break;
 		case 'h':commit
+			//
 		    break;
 		case 'i':RequestStateTransfer
 		    break;
@@ -1693,6 +1703,8 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	
+	//RDMA is ready, do 6 times of rdma Receive to get constructor input
+	//VRReplica(agc =6 );
+	//while(true){RDMA receive+ process_work_completion_events()}
 	return 0;
 }
