@@ -112,81 +112,81 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         Notice("Batching enabled; batch size %d", batchSize);
     }
     //add a rdma write function (for registration propose) to RDMA server. 
-	//bellow are for RDMA client
-	// Hard-coded the destination address
-	const char RDMA_SERVER_ADDR = 10.1.0.4;
-	struct sockaddr_in server_sockaddr;
-	int ret;
-	bzero(&server_sockaddr, sizeof server_sockaddr);
-	server_sockaddr.sin_family = AF_INET;
-	server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	/* buffers are NULL */
-	src = dst = NULL; 
-	src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
-	dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
-	type = (char *)calloc(sizeof(char),1);
-        //would this amount of capacity affect performance?
-	//set address
-	ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
-	if (ret) {
-					rdma_error("Invalid IP \n");
-					return ret;
-				}
-	//set to default port
-	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
-	///* This function prepares client side connection resources for an RDMA connection */
-	ret = client_prepare_connection(&server_sockaddr);
-	if (ret) { 
-		rdma_error("Failed to setup client connection , ret = %d \n", ret);
-		return ret;
-	 }
-	/* Pre-posts a receive buffer before calling rdma_connect () */
-	ret = client_pre_post_recv_buffer(); 
-	if (ret) { 
-		rdma_error("Failed to setup client connection , ret = %d \n", ret);
-		return ret;
-	}
-	/* Connects to the RDMA server */
-	ret = client_connect_to_server();
-	if (ret) { 
-		rdma_error("Failed to setup client connection , ret = %d \n", ret);
-		return ret;
-	}
-	//Exchange buffer metadata with the server.
-	ret = client_xchange_metadata_with_server();
-	if (ret) {
-		rdma_error("Failed to setup client connection , ret = %d \n", ret);
-		return ret;
-	}
-	int ret = -1;
-	client_dst_mr = rdma_buffer_register(pd,
-			dst,
-			strlen(src),
-			(IBV_ACCESS_LOCAL_WRITE | 
-			 IBV_ACCESS_REMOTE_WRITE | 
-			 IBV_ACCESS_REMOTE_READ));
-	if (!client_dst_mr) {
-		rdma_error("We failed to create the destination buffer, -ENOMEM\n");
-		return -ENOMEM;
-	}
+    //bellow are for RDMA client
+    // Hard-coded the destination address
+    const char RDMA_SERVER_ADDR = 10.1.0.4;
+    struct sockaddr_in server_sockaddr;
+    int ret;
+    bzero(&server_sockaddr, sizeof server_sockaddr);
+    server_sockaddr.sin_family = AF_INET;
+    server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    /* buffers are NULL */
+    src = dst = NULL; 
+    src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
+    dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+    type = (char *)calloc(sizeof(char),1);
+    //would this amount of capacity affect performance
+    //set address
+    ret = get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
+    if (ret) {
+	    rdma_error("Invalid IP \n");
+	    return ret;
+    }
+    //set to default port
+    server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
+    ///* This function prepares client side connection resources for an RDMA connection */
+    ret = client_prepare_connection(&server_sockaddr);
+    if (ret) { 
+	rdma_error("Failed to setup client connection , ret = %d \n", ret);
+	return ret;
+    }
+    /* Pre-posts a receive buffer before calling rdma_connect () */
+    ret = client_pre_post_recv_buffer(); 
+    if (ret) { 
+	rdma_error("Failed to setup client connection , ret = %d \n", ret);
+	return ret;
+    }
+    /* Connects to the RDMA server */
+    ret = client_connect_to_server();
+    if (ret) { 
+	rdma_error("Failed to setup client connection , ret = %d \n", ret);
+	return ret;
+    }
+    //Exchange buffer metadata with the server.
+    ret = client_xchange_metadata_with_server();
+    if (ret) {
+	rdma_error("Failed to setup client connection , ret = %d \n", ret);
+	return ret;
+    }
+    int ret = -1;
+    client_dst_mr = rdma_buffer_register(pd,
+		dst,
+		strlen(src),
+		(IBV_ACCESS_LOCAL_WRITE | 
+		 IBV_ACCESS_REMOTE_WRITE | 
+		 IBV_ACCESS_REMOTE_READ));
+    if (!client_dst_mr) {
+	rdma_error("We failed to create the destination buffer, -ENOMEM\n");
+	 return -ENOMEM;
+    }
 	
-	//RDMA write for registration; (Configuration config, int myIdx,bool initialize,
-	//Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
-	//send config
-        memset(src, 0, sizeof(src));
-	memset(src, 'A', 1);
-	memcpy(src+1, &config, sizeof(config));
-	//copy myIdx
-	memcpy(src+1+sizeof(config), &myIdx, sizeof(myIdx));
-	//copy initialize
-        memcpy(src+1+sizeof(config)+sizeof(myIdx), &initialize, sizeof(initialize));
-	//copy transport
-        memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize), transport, sizeof(*transport)); //dereference transport
-        //copy app
-        memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
-        client_send();
-	client_recieve();
-	ret = process_work_completion_events(io_completion_channel, wc, 2);
+    //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
+    //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
+    //send config
+    memset(src, 0, sizeof(src));
+    memset(src, 'A', 1);
+    memcpy(src+1, &config, sizeof(config));
+    //copy myIdx
+    memcpy(src+1+sizeof(config), &myIdx, sizeof(myIdx));
+    //copy initialize
+    memcpy(src+1+sizeof(config)+sizeof(myIdx), &initialize, sizeof(initialize));
+    //copy transport
+    memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize), transport, sizeof(*transport)); //dereference transport
+    //copy app
+    memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
+    client_send();
+    client_recieve();
+    ret = process_work_completion_events(io_completion_channel, wc, 2);
     /* Move these 3 Timeout to N10
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
