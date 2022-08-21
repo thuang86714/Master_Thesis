@@ -38,6 +38,7 @@ from client to server           from server to client
 'N' remote+Recovery
 'O' remote+RecoveryResponse
 */
+//TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based, 
 #include "common/replica.h"
 #include "replication/vr/replica.h"
 
@@ -110,45 +111,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     if (batchSize > 1) {
         Notice("Batching enabled; batch size %d", batchSize);
     }
-
-    this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
-            RWarning("Have not heard from leader; starting view change");
-            StartViewChange(view+1);
-        });
-    this->nullCommitTimeout = new Timeout(transport, 1000, [this]() {
-            SendNullCommit();
-        });
-    this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
-            this->lastRequestStateTransferView = 0;
-            this->lastRequestStateTransferOpnum = 0;
-        });
-    this->stateTransferTimeout->Start();
-    this->resendPrepareTimeout = new Timeout(transport, 500, [this]() {
-            ResendPrepare();
-        });
-    this->closeBatchTimeout = new Timeout(transport, 300, [this]() {
-            CloseBatch();
-        });
-    this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
-            SendRecoveryMessages();
-        });
-
-    _Latency_Init(&requestLatency, "request");
-    _Latency_Init(&executeAndReplyLatency, "executeAndReply";
-//add a rdma write function (for registration propose) to RDMA server. 
-    if (initialize) {
-        if (AmLeader) {
-	
-            nullCommitTimeout->Start();
-        } else {
-            viewChangeTimeout->Start();
-        }
-    } else {
-        this->status = STATUS_RECOVERING;
-        this->recoveryNonce = GenerateNonce();
-        SendRecoveryMessages();
-        recoveryTimeout->Start();
-    }
+    //add a rdma write function (for registration propose) to RDMA server. 
 	//bellow are for RDMA client
 	// Hard-coded the destination address
 	const char RDMA_SERVER_ADDR = 10.1.0.4;
@@ -224,8 +187,51 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         client_send();
 	client_recieve();
 	ret = process_work_completion_events(io_completion_channel, wc, 2);
-	    
-		  
+    /* Move these 3 Timeout to N10
+    this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
+            RWarning("Have not heard from leader; starting view change");
+            StartViewChange(view+1);
+        });
+    this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
+            this->lastRequestStateTransferView = 0;
+            this->lastRequestStateTransferOpnum = 0;
+        });
+    this->stateTransferTimeout->Start();
+    this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
+            SendRecoveryMessages();
+        });
+    */
+    //the rest 3 Timeout are actually also part of logic on N10, but I will soolve it by RDMA communication.
+    this->nullCommitTimeout = new Timeout(transport, 1000, [this]() {
+            SendNullCommit();
+        });
+    
+    this->resendPrepareTimeout = new Timeout(transport, 500, [this]() {
+            ResendPrepare();
+        });
+    this->closeBatchTimeout = new Timeout(transport, 300, [this]() {
+            CloseBatch();
+        });
+    
+
+    _Latency_Init(&requestLatency, "request");
+    _Latency_Init(&executeAndReplyLatency, "executeAndReply");
+
+    if (initialize) {
+        if (AmLeader) {
+	
+            nullCommitTimeout->Start();
+        } else {
+            viewChangeTimeout->Start();
+	    //send message to rdma server
+        }
+    } else {
+        this->status = STATUS_RECOVERING;
+        this->recoveryNonce = GenerateNonce();
+        SendRecoveryMessages();//send mesage to rdma server
+        recoveryTimeout->Start();
+	//send message to rdma server
+    }
 }
 
 		
