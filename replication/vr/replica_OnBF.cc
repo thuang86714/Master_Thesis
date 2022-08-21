@@ -675,7 +675,8 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
     }
 }
 
-static int client_prepare_connection(struct sockaddr_in *s_addr)
+static int 
+VRReplica::client_prepare_connection(struct sockaddr_in *s_addr)
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -813,7 +814,8 @@ static int client_prepare_connection(struct sockaddr_in *s_addr)
 	return 0;
 }				  
 		  
-static int client_pre_post_recv_buffer()
+static int 
+VRReplica::client_pre_post_recv_buffer()
 {
 	int ret = -1;
 	server_metadata_mr = rdma_buffer_register(pd,
@@ -843,7 +845,8 @@ static int client_pre_post_recv_buffer()
 }
 		  
 /* Connects to the RDMA server */
-static int client_connect_to_server() 
+static int 
+VRReplica::client_connect_to_server() 
 {
 	struct rdma_conn_param conn_param;
 	struct rdma_cm_event *cm_event = NULL;
@@ -880,7 +883,8 @@ static int client_connect_to_server()
  * this program is client driven. But it shown here how to do it for the illustration
  * purposes
  */
-static int client_xchange_metadata_with_server()
+static int 
+VRReplica::client_xchange_metadata_with_server()
 {
 	struct ibv_wc wc[2];
 	int ret = -1;
@@ -945,7 +949,8 @@ static int client_xchange_metadata_with_server()
 //I will divide the function into 2 separate function, RDMA Write & RDMA Read
 //Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation. 
 //But according to Page 106, Mellanox Verbs Programming Tutorial (by Dotan Barak) , atomic operation is performance killer
-static int client_send() 
+static int 
+VRReplica::client_send() 
 {
 	struct ibv_wc wc;
 	
@@ -988,7 +993,8 @@ static int client_send()
 }
 
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
-static int client_receive()
+static int 
+VRReplica::client_receive()
 {
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
@@ -1053,7 +1059,8 @@ static int client_receive()
 /* This function disconnects the RDMA connection from the server and cleans up 
  * all the resources.
  */
-static int client_disconnect_and_clean()
+static int 
+VRReplica::client_disconnect_and_clean()
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
