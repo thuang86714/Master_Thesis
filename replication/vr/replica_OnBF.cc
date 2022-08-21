@@ -185,7 +185,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //copy app
     memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
     client_send();
-    client_recieve();
+    client_receive();
     ret = process_work_completion_events(io_completion_channel, wc, 2);
     /* Move these 3 Timeout to N10
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
@@ -366,7 +366,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //copy unlog req
 	    memcpy(src+1+sizeof(remote), replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kPrepare:
@@ -378,7 +378,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //prepare
 	    memcpy(src+1+sizeof(remote), replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kCommit:
@@ -390,7 +390,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //commit
 	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:
@@ -402,7 +402,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //req state transfer
 	    memcpy(src+1+sizeof(remote), replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kStateTransfer:
@@ -414,7 +414,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //state transfer
 	    memcpy(src+1+sizeof(remote), replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kStartViewChange:
@@ -425,7 +425,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //start view change
 	    memcpy(src+1+sizeof(remote), replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kDoViewChange:
@@ -436,7 +436,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //do view change
 	    memcpy(src+1+sizeof(remote), replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kStartView:
@@ -447,7 +447,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //Start view
 	    memcpy(src+1+sizeof(remote), replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kRecovery:
@@ -458,7 +458,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //recovery
 	    memcpy(src+1+sizeof(remote), replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
@@ -469,7 +469,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //recovery response
 	    memcpy(src+1, replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    client_send();
-	    client_recieve();
+	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
             break;
         default:
@@ -999,35 +999,24 @@ VRReplica::client_receive()
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
 	/* Now we prepare a READ using same variables but for destination */
-	client_send_sge.addr = (uint64_t) client_dst_mr->addr;
-	client_send_sge.length = (uint32_t) client_dst_mr->length;
-	client_send_sge.lkey = client_dst_mr->lkey;
+	server_recv_sge.addr = (uint64_t) client_dst_mr->addr;
+	server_recv_sge.length = (uint32_t) client_dst_mr->length;
+	server_recv_sge.lkey = client_dst_mr->lkey;
 	/* now we link to the send work request */
-	bzero(&client_send_wr, sizeof(client_send_wr));
-	client_send_wr.sg_list = &client_send_sge;
-	client_send_wr.num_sge = 1;
-	//client_send_wr.opcode = IBV_WR_RDMA_READ;
-	//client_send_wr.send_flags = IBV_SEND_SIGNALED;
-	/* we have to tell server side info for RDMA */
-	//client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
-	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
+	bzero(&server_recv_wr, sizeof(server_recv_wr));
+	server_recv_wr.sg_list = &client_send_sge;
+	server_recv_wr.num_sge = 1;
 	/* Now we post it */
 	ret = ibv_post_rcv(client_qp, 
-		       &client_send_wr,
-	       &bad_client_send_wr);
+		       &server_recv_wr,
+	       &bad_server_recv_wr);
 	if (ret) {
 		rdma_error("Failed to receive client dst buffer from the server, errno: %d \n", 
 				-errno);
 		return -errno;
 	}
-	/* at this point we are expecting 1 work completion for the write 
-	ret = process_work_completion_events(io_completion_channel, 
-			&wc, 1);
-	if(ret != 1) {
-		rdma_error("We failed to get 1 work completions , ret = %d \n",
-				ret);
-		return ret;
-	}
+	// at this point we are expecting 1 work completion for the write 
+	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
 	*/
 	memcpy(type, dst, 1);
