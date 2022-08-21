@@ -106,7 +106,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     this->lastRequestStateTransferOpnum = 0;
     lastBatchEnd = 0;
     batchComplete = true;
-
+    Amleader = true; //hard-coded bool of Amleader() function, use RDMA to chage value;
     if (batchSize > 1) {
         Notice("Batching enabled; batch size %d", batchSize);
     }
@@ -137,7 +137,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     _Latency_Init(&executeAndReplyLatency, "executeAndReply";
 //add a rdma write function (for registration propose) to RDMA server. 
     if (initialize) {
-        if (AmLeader()) {
+        if (AmLeader) {
 	
             nullCommitTimeout->Start();
         } else {
@@ -256,19 +256,20 @@ VRReplica::GenerateNonce() const
     std::uniform_int_distribution<uint64_t> dis;
     return dis(gen);
 }
-//fast-path && non-leader
+/*fast-path && non-leader
 bool
 VRReplica::AmLeader() const
 {
     return (configuration.GetLeaderIndex(view) == this->replicaIdx);
 }		  
+*/
 		  
 //send prepare message
 //No need tidy up
 void
 VRReplica::CloseBatch()
 {
-    ASSERT(AmLeader());
+    ASSERT(AmLeader);
     ASSERT(lastBatchEnd < lastOp);
 
     opnum_t batchStart = lastBatchEnd+1;
@@ -307,7 +308,7 @@ VRReplica::CloseBatch()
 void
 VRReplica::ResendPrepare()
 {
-    ASSERT(AmLeader());
+    ASSERT(AmLeader);
     if (lastOp == lastCommitted) {
         return;
     }
@@ -472,7 +473,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         return;
     }
 
-    if (!AmLeader()) {
+    if (!AmLeader) {
         RDebug("Ignoring request because I'm not the leader");
         Latency_EndType(&requestLatency, 'i');
         return;
@@ -599,7 +600,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         return;
     }
 
-    if (!AmLeader()) {
+    if (!AmLeader) {
         RWarning("Ignoring PREPAREOK because I'm not the leader");
         return;
     }
