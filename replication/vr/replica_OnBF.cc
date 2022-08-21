@@ -368,6 +368,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleUnloggedRequest()
             break;
         case ToReplicaMessage::MsgCase::kPrepare:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -380,6 +381,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+            HandlePrepare();
             break;
         case ToReplicaMessage::MsgCase::kCommit:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -392,6 +394,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleCommit();
             break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
@@ -404,6 +407,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleRequestStateTransfer();
             break;
         case ToReplicaMessage::MsgCase::kStateTransfer:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
@@ -416,6 +420,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleStateTransfer();
             break;
         case ToReplicaMessage::MsgCase::kStartViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
@@ -427,6 +432,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleStartViewChange();
             break;
         case ToReplicaMessage::MsgCase::kDoViewChange:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -438,6 +444,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleDoViewChange();
             break;
         case ToReplicaMessage::MsgCase::kStartView:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -449,6 +456,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleStartView();
             break;
         case ToReplicaMessage::MsgCase::kRecovery:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -460,6 +468,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleRecovery();
             break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -471,6 +480,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    client_send();
 	    client_receive();
 	    ret = process_work_completion_events(io_completion_channel, wc, 2);
+	    HandleRecoveryResponse();
             break;
         default:
             //the line below should not need further change
@@ -675,6 +685,89 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
     }
 }
 
+void
+VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
+                                 const UnloggedRequestMessage &msg)
+{
+    //let N10 do all the logic, send m back to transport
+    if (!(transport->SendMessage(this, remote, PBMessage(m))))
+        Warning("Failed to send reply message");
+}
+	
+void
+VRReplica::HandlePrepare(const TransportAddress &remote,
+                         const PrepareMessage &msg)
+{
+	//let N10 do all the logic, send m back to transport
+    int leader = (view % 3); //hard-coded n=3
+    if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
+        RWarning("Failed to send PrepareOK message to leader");
+        }
+}
+	
+void
+VRReplica::HandleCommit(const TransportAddress &remote,
+                        const CommitMessage &msg)
+{
+	return;
+}
+	
+void
+VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
+                                      const RequestStateTransferMessage &msg)
+{	//let N10 do all the logic, send m back to transport
+	transport->SendMessage(this, remote, PBMessage(m));
+}
+	
+void
+VRReplica::HandleStateTransfer(const TransportAddress &remote,
+                               const StateTransferMessage &msg)
+{
+	return;
+}
+	
+void
+VRReplica::HandleStartViewChange(const TransportAddress &remote,
+                                 const StartViewChangeMessage &msg)
+{	
+	int leader = (view % 3); //hard-coded n=3
+	if (!(transport->SendMessageToReplica(this, leader, PBMessage(m)))) {
+                RWarning("Failed to send DoViewChange message to leader of new view");
+            }
+}
+	
+void
+VRReplica::HandleDoViewChange(const TransportAddress &remote,
+                              const DoViewChangeMessage &msg)
+{
+	if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
+            RWarning("Failed to send StartView message to all replicas");
+        }
+}
+	
+void
+VRReplica::HandleStartView(const TransportAddress &remote,
+                           const StartViewMessage &msg)
+{
+	return;
+}
+	
+void
+VRReplica::HandleRecovery(const TransportAddress &remote,
+                          const RecoveryMessage &msg)
+{
+    if (!(transport->SendMessage(this, remote, PBMessage(m)))) {
+    RWarning("Failed to send recovery response");
+    }
+}
+	
+void
+VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
+                                  const RecoveryResponseMessage &msg)
+{
+	return;
+}
+	
 static int 
 VRReplica::client_prepare_connection(struct sockaddr_in *s_addr)
 {
