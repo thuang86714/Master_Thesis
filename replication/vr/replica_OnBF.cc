@@ -29,14 +29,14 @@ from client to server                                              from server t
 'q' ++this->lastOp;
 'r' log.Append()
 's' CommitUpto(msg.opnum())
-'t' viewChangeTimeout->start()
-'u' recoveryTimeout->start()
+'t' 
+'u' 
 'v' NullCOmmitTimeout->start()
 'w' NullCOmmitTimeout->Reset()
 'x' CloseBatchTimeout->Start()
 'y' CloseBatchTimeout->Stop()
 'z' resendPrepareTimeout->Reset()
-
+'A' ack
 
 */
 //TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based, 
@@ -187,7 +187,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
     client_send();
     client_receive();
-    ret = process_work_completion_events(io_completion_channel, wc, 2);
+    process_work_completion_events(io_completion_channel, wc, 2);
     /* Move these 3 Timeout to N10
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
@@ -218,20 +218,21 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     _Latency_Init(&requestLatency, "request");
     _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 
-    if (initialize) {
+    if (initialize) { //initialize == true
         if (AmLeader) {
-	
             nullCommitTimeout->Start();
+	    memset(src, 'v', 1);
+	    client_send();//no need for ack from client side
         } else {
             viewChangeTimeout->Start();
-	    //send message to rdma server
+	    //no need to send message to RDMA server since Amleader is hard-coded as true
         }
     } else {
         this->status = STATUS_RECOVERING;
         this->recoveryNonce = GenerateNonce();
-        SendRecoveryMessages();//send mesage to rdma server
+        SendRecoveryMessages();
         recoveryTimeout->Start();
-	//send message to rdma server
+	//no need to send message since initialize == true
     }
 }
 
@@ -242,12 +243,12 @@ VRReplica::~VRReplica()
     Latency_Dump(&requestLatency);
     Latency_Dump(&executeAndReplyLatency);
 
-    delete viewChangeTimeout;
+    //delete viewChangeTimeout;
     delete nullCommitTimeout;
-    delete stateTransferTimeout;
+    //delete stateTransferTimeout;
     delete resendPrepareTimeout;
     delete closeBatchTimeout;
-    delete recoveryTimeout;
+    //delete recoveryTimeout;
 
     for (auto &kv : pendingPrepares) {
         delete kv.first;
@@ -280,11 +281,16 @@ VRReplica::CloseBatch()
     ASSERT(lastBatchEnd < lastOp);
 
     opnum_t batchStart = lastBatchEnd+1;
-
+    memset(src, 'l', 1); //lowercase L for CloseBatch()
+    memcpy(src+1, &batchstart, sizeof(batchstart));
+    client_send();
+    //need a client_receive() for case 'b' for CloseBatch--PBMessage(lastPrepare) from server;
+    client_receive();
+    /*move this part logic to N10
     RDebug("Sending batched prepare from " FMT_OPNUM
            " to " FMT_OPNUM,
            batchStart, lastOp);
-    /* Send prepare messages */
+    /* Send prepare messages
     PrepareMessage *p = lastPrepare.mutable_prepare();
     p->set_view(view);
     p->set_opnum(lastOp);
@@ -299,10 +305,12 @@ VRReplica::CloseBatch()
         ASSERT(entry->viewstamp.opnum == i);
         *r = entry->request;
     }
-
+    */
+    /*	move to client_receive case 'b'
     if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
         RWarning("Failed to send prepare message to all replicas");
     }
+    */
     lastBatchEnd = lastOp;
     batchComplete = false;
 
@@ -310,6 +318,20 @@ VRReplica::CloseBatch()
     closeBatchTimeout->Stop();
 }
   
+void
+VRReplica::SendRecoveryMessages()
+{
+    ToReplicaMessage m;
+    RecoveryMessage *recovery = m.mutable_recovery();
+    recovery->set_replicaidx(this->replicaIdx);
+    recovery->set_nonce(recoveryNonce);
+
+    RNotice("Requesting recovery");
+    if (!transport->SendMessageToAll(this, PBMessage(m))) {
+        RWarning("Failed to send Recovery message to all replicas");
+    }
+}
+	
 void
 VRReplica::SendNullCommit()
 {
@@ -1115,9 +1137,12 @@ VRReplica::client_receive()
 	*/
 	memcpy(type, dst, 1);
 	switch(*type){
-		case 'Q':config
+		case 'a':ack
 		    break;
-		case 'R':index
+		case 'b':
+			if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
+        		RWarning("Failed to send prepare message to all replicas");
+   			 }
 		    break;
 		case 'S':view-num
 		    break;
