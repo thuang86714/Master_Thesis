@@ -9,34 +9,35 @@
  * TODO: Cleanup previously allocated resources in case of an error condition
  */
 /*
-from client to server           from server to client
-'a' config                      'Q' config
-'b' myIdx                       'R' myIdx
-'c' initialize                  'S' view-num
-'d' transport                   'T' status
-'e' nullApp                     'U' op-num
-'f' UnloggedRequest             'V' log
-'g' Prepare                     'W' commit-num
-'h' commit                      'X' client-table
-'i' RequestStateTransfer        'Y' ack
-'j' StateTransfer
-'k' StartViewChange
-'l' DoViewChange
-'m' StartView
-'n' Recovery
-'o' RecoveryResponse
-'p' Remote
-'A' config+myIdx+initialize+transport+nullApp
-'F' remote+Unlogged
-'G' remote+Prepare
-'H' remote+Commit
-'I' remote+RequestStateTransfer
-'J' remote+StateTransfer
-'K' remote+StartViewChange
-'L' remote+DoViewChange
-'M' remote+StartView
-'N' remote+Recovery
-'O' remote+RecoveryResponse
+from client to server                                              from server to client
+'a' config+myIdx+initialize+transport+nullApp                      'Q' config
+'b' remote+Unlogged                                                'R' myIdx
+'c' remote+Prepare                                                 'S' view-num
+'d' remote+Commit                                                  'T' status
+'e' remote+RequestStateTransfer                                    'U' op-num
+'f' remote+StateTransfer                                           'V' log
+'g' remote+StartViewChange                                         'W' commit-num
+'h' remote+DoViewChange                                            'X' client-table
+'i' remote+StartView                                               'Y' ack
+'j' remote+Recovery
+'k' remote+RecoveryResponse
+'l' Closebatch
+'m' RequestStateTransfer
+'n' clientAddress.insert
+'o' UpdateClientTable()
+'p' LeaderUpCall()
+'q' ++this->lastOp;
+'r' log.Append()
+'s' CommitUpto(msg.opnum())
+'t' viewChangeTimeout->start()
+'u' recoveryTimeout->start()
+'v' NullCOmmitTimeout->start()
+'w' NullCOmmitTimeout->Reset()
+'x' CloseBatchTimeout->Start()
+'y' CloseBatchTimeout->Stop()
+'z' resendPrepareTimeout->Reset()
+
+
 */
 //TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based, 
 #include "common/replica.h"
