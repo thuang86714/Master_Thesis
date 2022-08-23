@@ -10,16 +10,16 @@
  */
 /*
 from client to server                                              from server to client
-'a' config+myIdx+initialize+transport+nullApp                      'Q' config
-'b' remote+Unlogged                                                'R' myIdx
-'c' remote+Prepare                                                 'S' view-num
-'d' remote+Commit                                                  'T' status
-'e' remote+RequestStateTransfer                                    'U' op-num
-'f' remote+StateTransfer                                           'V' log
-'g' remote+StartViewChange                                         'W' commit-num
-'h' remote+DoViewChange                                            'X' client-table
-'i' remote+StartView                                               'Y' ack
-'j' remote+Recovery
+'a' config+myIdx+initialize+transport+nullApp                      'a' ack
+'b' remote+Unlogged                                                'b' CloseBatch--PBMessage(lastPrepare)
+'c' remote+Prepare                                                 'c' HandleUnlogged--ToClientMessage m
+'d' remote+Commit                                                  'd' HandlePrepare--ToClientMessage m
+'e' remote+RequestStateTransfer                                    'e' HandleStateTransfer--lastOp changed
+'f' remote+StateTransfer                                           'f' HandleStartViewChange--ToReplicaMessage m
+'g' remote+StartViewChange                                         'g' HandleDoViewChange--ToReplicaMessage m
+'h' remote+DoViewChange                                            'h' HandleStartView--lastOp changed
+'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
+'j' remote+Recovery                                                'j' HandleRecovery--lastOp changed
 'k' remote+RecoveryResponse
 'l' Closebatch
 'm' RequestStateTransfer
@@ -29,7 +29,7 @@ from client to server                                              from server t
 'q' ++this->lastOp;
 'r' log.Append()
 's' CommitUpto(msg.opnum())
-'t' 
+'t' send lastop, batchcomplete=false,  resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
 'u' 
 'v' NullCOmmitTimeout->start()
 'w' NullCOmmitTimeout->Reset()
