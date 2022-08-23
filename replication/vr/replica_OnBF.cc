@@ -20,9 +20,9 @@ from client to server                                              from server t
 'h' remote+DoViewChange                                            'h' HandleStartView--lastOp changed
 'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
 'j' remote+Recovery                                                'j' HandleRecovery--lastOp changed
-'k' remote+RecoveryResponse
-'l' Closebatch
-'m' RequestStateTransfer
+'k' remote+RecoveryResponse                                        'k' Latency_Start(&executeAndReplyLatency)
+'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)
+'m' RequestStateTransfer                                           'm' CommitUpto--transport
 'n' clientAddress.insert
 'o' UpdateClientTable()
 'p' LeaderUpCall()
@@ -413,8 +413,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //commit
 	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
 	    client_send();
-	    //change needed for possible RequestStateTransfer()
-	    process_work_completion_events(io_completion_channel, wc, 1);
+	    client_receive();
             break;
 	}
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:{
@@ -528,6 +527,8 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         std::pair<uint64_t, std::unique_ptr<TransportAddress> >(
             msg.req().clientid(),
             std::unique_ptr<TransportAddress>(remote.clone())));
+    memset(src, 'B', 1);
+    memcpy(src+1, &clientAddresses, sizeof(clientAddresses));
 
     // Check the client table to see if this is a duplicate request
     auto kv = clientTable.find(msg.req().clientid());
@@ -559,12 +560,9 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         }
     }
     
-    // Update the client table
-    UpdateClientTable(msg.req());
-    memset(src, 0, sizeof(src));
-    memcpy(ct, msg.req(), sizeof(msg.req()));
-    client_rdma_remote_write();
-
+    //UpdateClientTable(msg.req()); on N10
+    memcpy(src+1+sizeof(clientAddresses), &msg.req, sizeof(msg.req));
+	
     // Leader Upcall
     bool replicate = false;
     string res;
@@ -586,6 +584,8 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         cte.reply = m;
         transport->SendMessage(this, remote, PBMessage(m));
         Latency_EndType(&requestLatency, 'f');
+	client_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
     } else {
         Request request;
         request.set_op(res);
@@ -594,14 +594,16 @@ VRReplica::HandleRequest(const TransportAddress &remote,
 
         /* Assign it an opnum */
         ++this->lastOp;
+	memcpy(src+1+sizeof(clientAddresses)+sizeof(meg.req), &lastOp, sizeof(lastOp));
         v.view = this->view;
         v.opnum = this->lastOp;
 
         RDebug("Received REQUEST, assigning " FMT_VIEWSTAMP, VA_VIEWSTAMP(v));
 
         /* Add the request to my log */
-        log.Append(new LogEntry(v, LOG_STATE_PREPARED, request));
-
+	newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
+        log.Append(newlogentry);
+        memcpy(src+1+sizeof(clientAddresses)+sizeof(meg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
         if (batchComplete ||
             (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
             CloseBatch();
@@ -609,11 +611,19 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             RDebug("Keeping in batch");
             if (!closeBatchTimeout->Active()) {
                 closeBatchTimeout->Start();
+		memset(src, 'C', 1);
+		client_send();
+		nullCommitTimeout->Reset();
+        	Latency_End(&requestLatency);
+		process_work_completion_events(io_completion_channel, wc, 1);
+		return;
             }
         }
 
         nullCommitTimeout->Reset();
+	client_send();
         Latency_End(&requestLatency);
+	process_work_completion_events(io_completion_channel, wc, 1);
     }
 }
 
@@ -638,8 +648,10 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
     }
 
     if (msg.view() > this->view) {
-        RequestStateTransfer();
-	    //Require a RDMA write
+        //RequestStateTransfer();
+	memset(src, 'D', 1);
+	client_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -663,10 +675,9 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 	    
 	//the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
         //CommitUpTo(msg.opnum());
-	memset(src, 0, sizeof(src));
-	memcpy(src, msg.opnum(), sizeof(msg.opnum()));
-	client_rdma_remote_write();//there's problem here, server side notification
-	client_rdma_remote_read(); //update the state on BF
+	memset(src, 'E', 1);
+	memcpy(src+1, &msg.opnum(), sizeof(msg.opnum()));
+	
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
             return;
@@ -688,10 +699,11 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         }
 
         nullCommitTimeout->Reset();
-
+        client_send();
+	process_work_completion_events(io_completion_channel, wc, 1); 
         // XXX Adaptive batching -- make this configurable
         if (lastBatchEnd == msg.opnum()) {
-            batchComplete = true;
+            batchComplete = true;//batchcomplete seems to be not important to logic on N10, we dont send this bool for now
             if  (lastOp > lastBatchEnd) {
                 CloseBatch();
             }
@@ -1121,12 +1133,23 @@ VRReplica::client_receive()
 		    break;
 		}
 		//below are reserved for non-handle functions()
-		case 'i':{//HandleRecovery--ToReplicaMessage m 
+		case 'k':{//CommitUpto--Latency_Start
 		    process_work_completion_events(io_completion_channel, wc, 2);
+		    Latency_Start(&executeAndReplyLatency);
+		    client_receive();
 		    break;
 		}
-		case 'i':{//HandleRecovery--ToReplicaMessage m 
-		    process_work_completion_events(io_completion_channel, wc, 2);
+		case 'l':{//CommitUpto --Latency_End
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    Latency_End(&executeAndReplyLatency);
+		    break;
+		}
+	        case 'm':{//CommitUpto--transport
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ToClientMessage m;
+		    memcpy(&m, dst+1, sizeof(m));
+		    transport->SendMessage(this, *iter->second, PBMessage(m));
+		    client_receive();
 		    break;
 		}
 	}
