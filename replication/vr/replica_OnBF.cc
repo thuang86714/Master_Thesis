@@ -283,7 +283,7 @@ VRReplica::CloseBatch()
     memcpy(src+1, &batchstart, sizeof(batchstart));
     client_send();
     //need a client_receive() for case 'b' for CloseBatch--PBMessage(lastPrepare) from server;
-    client_receive();//client_receive() case 'a'
+    client_receive();//client_receive() case 'b'
     /*move this part logic to N10
     RDebug("Sending batched prepare from " FMT_OPNUM
            " to " FMT_OPNUM,
@@ -316,7 +316,7 @@ VRReplica::CloseBatch()
     memset(src, 't', 1);
     memcpy(sr+1, &lastOp, sizeof(lastOp));
     client_send();
-    process_work_completion_events(io_completion_channel, wc, 1); //an ack to gurantee receive
+    process_work_completion_events(io_completion_channel, wc, 3); //an ack to gurantee receive
 }
   
 void
