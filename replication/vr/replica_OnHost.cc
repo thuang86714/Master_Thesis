@@ -55,20 +55,7 @@ using namespace proto;
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
 //write a main, so during experiment, I will also run one process on Node10
-static struct rdma_event_channel *cm_event_channel = NULL;
-static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
-static struct ibv_pd *pd = NULL;
-static struct ibv_comp_channel *io_completion_channel = NULL;
-static struct ibv_cq *cq = NULL;
-static struct ibv_qp_init_attr qp_init_attr;
-static struct ibv_qp *client_qp = NULL;
-/* RDMA memory resources */
-static struct ibv_mr *client_metadata_mr = NULL, *server_buffer_mr = NULL, *server_metadata_mr = NULL;
-static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
-static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
-static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
-static struct ibv_sge client_recv_sge, server_send_sge;
-static char *src = NULL, *dst = NULL; *type = NULL;
+
 	
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
@@ -390,7 +377,7 @@ VRReplica::ResendPrepare()
     }
 }
 
-/*
+
 void
 VRReplica::CloseBatch()
 {
@@ -402,7 +389,7 @@ VRReplica::CloseBatch()
     RDebug("Sending batched prepare from " FMT_OPNUM
            " to " FMT_OPNUM,
            batchStart, lastOp);
-    /* Send prepare messages 
+    // Send prepare messages 
     PrepareMessage *p = lastPrepare.mutable_prepare();
     p->set_view(view);
     p->set_opnum(lastOp);
@@ -427,8 +414,8 @@ VRReplica::CloseBatch()
     resendPrepareTimeout->Reset();
     closeBatchTimeout->Stop();
 }
-    */
-
+    
+/*
 void
 VRReplica::ReceiveMessage(const TransportAddress &remote,
                           void *buf, size_t size)
@@ -481,7 +468,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
                     replica_msg.msg_case());
     }
 }
-
+*/
 /*
 void
 VRReplica::HandleRequest(const TransportAddress &remote,
@@ -1231,7 +1218,8 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
 
 //Below are for RDMA server
 
-static int setup_client_resources()
+static int 
+VRReplica::setup_client_resources()
 {
 	int ret = -1;
 	if(!cm_client_id){
@@ -1325,7 +1313,8 @@ static int setup_client_resources()
 }
 
 /* Starts an RDMA server by allocating basic connection resources */
-static int start_rdma_server(struct sockaddr_in *server_addr) 
+static int 
+VRReplica::start_rdma_server(struct sockaddr_in *server_addr) 
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -1398,7 +1387,8 @@ static int start_rdma_server(struct sockaddr_in *server_addr)
 }
 
 /* Pre-posts a receive buffer and accepts an RDMA client connection */
-static int accept_client_connection()
+static int 
+VRReplica::accept_client_connection()
 {
 	struct rdma_conn_param conn_param;
 	struct rdma_cm_event *cm_event = NULL;
@@ -1475,7 +1465,8 @@ static int accept_client_connection()
 }
 
 /* This function sends server side buffer metadata to the connected client */
-static int send_server_metadata_to_client() 
+static int 
+VRReplica::send_server_metadata_to_client() 
 {
 	struct ibv_wc wc;
 	int ret = -1;
@@ -1559,7 +1550,8 @@ static int send_server_metadata_to_client()
 
 /* This is server side logic. Server passively waits for the client to call 
  * rdma_disconnect() and then it will clean up its resources */
-static int disconnect_and_cleanup()
+static int 
+VRReplica::disconnect_and_cleanup()
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -1621,10 +1613,12 @@ static int disconnect_and_cleanup()
 	return 0;
 }
 	
-static int server_send(){
+void
+VRReplica::server_send(){
 }
 	
-static int server_receive(){
+void
+VRReplica::server_receive(){
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
 	//ibv_post_recv();
@@ -1698,6 +1692,20 @@ static int server_receive(){
 //make main constantly listening on certain addr and port
 int main(int argc, char **argv) 
 {
+	static struct rdma_event_channel *cm_event_channel = NULL;
+	static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
+	static struct ibv_pd *pd = NULL;
+	static struct ibv_comp_channel *io_completion_channel = NULL;
+	static struct ibv_cq *cq = NULL;
+	static struct ibv_qp_init_attr qp_init_attr;
+	static struct ibv_qp *client_qp = NULL;
+	/* RDMA memory resources */
+	static struct ibv_mr *client_metadata_mr = NULL, *server_buffer_mr = NULL, *server_metadata_mr = NULL;
+	static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
+	static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
+	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
+	static struct ibv_sge client_recv_sge, server_send_sge;
+	static char *src = NULL, *dst = NULL; *type = NULL;
 	int ret;
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
