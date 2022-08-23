@@ -9,23 +9,42 @@
  * TODO: Cleanup previously allocated resources in case of an error condition
  */
 /*
-from client to server           from server to client
-'a' config                      'Q' config
-'b' myIdx                       'R' myIdx
-'c' initialize                  'S' view-num
-'d' transport                   'T' status
-'e' nullApp                     'U' op-num
-'f' UnloggedRequest             'V' log
-'g' Prepare                     'W' commit-num
-'h' commit                      'X' client-table
-'i' RequestStateTransfer        'Y' ack
-'j' StateTransfer
-'k' StartViewChange
-'l' DoViewChange
-'m' StartView
-'n' Recovery
-'o' RecoveryResponse
-'p' Remote
+from client to server                                              from server to client
+'a' config+myIdx+initialize+transport+nullApp                      'a' ack
+'b' remote+Unlogged_request                                        'b' CloseBatch--PBMessage(lastPrepare)
+'c' remote+Prepare                                                 'c' HandleUnlogged--ToClientMessage m
+'d' remote+Commit                                                  'd' HandlePrepare--ToClientMessage m
+'e' remote+RequestStateTransfer                                    'e' HandleStateTransfer--lastOp changed
+'f' remote+StateTransfer                                           'f' HandleStartViewChange--ToReplicaMessage m
+'g' remote+StartViewChange                                         'g' HandleDoViewChange--ToReplicaMessage m
+'h' remote+DoViewChange                                            'h' HandleStartView--lastOp changed
+'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
+'j' remote+Recovery                                                'j' HandleRecovery--lastOp changed
+'k' remote+RecoveryResponse                                        'k' Latency_Start(&executeAndReplyLatency)
+'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)
+'m' RequestStateTransfer                                           'm' CommitUpto--transport
+'n' clientAddress.insert                                           'n'
+'o' UpdateClientTable()                                            'o'
+'p' LeaderUpCall()
+'q' ++this->lastOp;
+'r' log.Append()
+'s' CommitUpto(msg.opnum())
+'t' send lastop, batchcomplete=false,
+resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+'u' 
+'v' NullCOmmitTimeout->start()
+'w' NullCOmmitTimeout->Reset()
+'x' CloseBatchTimeout->Start()
+'y' CloseBatchTimeout->Stop()
+'z' resendPrepareTimeout->Reset()
+'A' HandleRequest()--clientAddress, updateclienttable()
+'B' HandleRequest()--clientAddress, updateclienttable(), 
+lastOp, new log entry, nullCommitTimeout->Reset();
+'C' HandleRequest()--clientAddress, updateclienttable(), 
+lastOp, new log entry, closeBatchTimeout->Start(), 
+nullCommitTimeout->Reset()
+'D' HandlePrepareOk--RequestStateTransfer()
+'E' HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
 */
 #include "common/replica.h"
 #include "replication/vr/replica.h"
@@ -123,8 +142,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 
 VRReplica::~VRReplica()
 {
-    Latency_Dump(&requestLatency);
-    Latency_Dump(&executeAndReplyLatency);
+    //Latency_Dump(&requestLatency);
+    //Latency_Dump(&executeAndReplyLatency);
 
     delete viewChangeTimeout;
     delete nullCommitTimeout;
