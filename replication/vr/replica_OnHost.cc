@@ -175,11 +175,13 @@ VRReplica::GenerateNonce() const
 
 void
 VRReplica::CommitUpTo(opnum_t upto)
-{
-    while (lastCommitted < upto) {
+{   int timeleft = upto - lastCommitted;
+    while (timeleft > 0) {
         Latency_Start(&executeAndReplyLatency);
-
-        lastCommitted++;
+        memset(, 'k', 1);
+	server_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
+        //lastCommitted++;
 
         /* Find operation in log */
         const LogEntry *entry = log.Find(lastCommitted);
@@ -221,8 +223,22 @@ VRReplica::CommitUpTo(opnum_t upto)
         if (iter != clientAddresses.end()) {
             transport->SendMessage(this, *iter->second, PBMessage(m));
         }
-
+        timeleft--;
+	
         Latency_End(&executeAndReplyLatency);
+	if (timeleft>0){
+		memset(src,'l',1);
+		memcpy(src+1, ,sizeof());//iter
+		memcpy(src+1+sizeof(), &m, sizeof(m));
+		client_send();
+		process_work_completion_events(io_completion_channel, wc, 1);
+	}else{
+		memset(src,'m',1);
+		memset(src+1, ,sizeof());//iter
+		memcpy(src+1+sizeof(), &m, sizeof(m));
+		client_send();
+		process_work_completion_events(io_completion_channel, wc, 1);
+	}
     }
 }
 
