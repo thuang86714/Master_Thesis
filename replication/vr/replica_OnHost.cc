@@ -219,11 +219,12 @@ VRReplica::CommitUpTo(opnum_t upto)
         }
 
         /* Send reply */
+	int n = entry->request.clientid();
         auto iter = clientAddresses.find(entry->request.clientid());
         if (iter != clientAddresses.end()) {
             //transport->SendMessage(this, *iter->second, PBMessage(m));
-	    memcpy(src+1, &iter, sizeof(iter));
-	    memcpy(src+1+sizeof(iter), &m, sizeof(m));
+	    memcpy(src+1, &n, sizeof(int));
+	    memcpy(src+1+sizeof(int), &m, sizeof(m));
 	    timeleft--;
 	    Latency_End(&executeAndReplyLatency);
 	    if (timeleft>0){
