@@ -1140,24 +1140,35 @@ VRReplica::client_receive()
 		    client_receive();
 		    break;
 		}
-		case 'l':{//CommitUpto--Latency_End(&executeAndReplyLatency)--still in while loop
+		case 'l':{//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_End(&executeAndReplyLatency);
+		    int n;
+		    memcpy(&n, dst+1, sizeof(int));
 		    ToClientMessage m;
-		    memcpy(&m, dst+1, sizeof(m));
-		    transport->SendMessage(this, *iter->second, PBMessage(m));//iter->second not avaiable for now
+		    memcpy(&m, dst+1+sizeof(int), sizeof(m));
+		    auto iter = clientAddresses.find(n);
+		    transport->SendMessage(this, *iter->second, PBMessage(m));
 		    client_receive();
 		    break;
 		}
-	        case 'm':{//CommitUpto--Latency_End(&executeAndReplyLatency)--still in while loop
+		case 'm':{//Latency_End(&executeAndReplyLatency)-while loop end, transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    Latency_End(&executeAndReplyLatency);
-		    ToClientMessage m;//order is changed to make sure the latency could be as close to one-machine situation as possible
-		    memcpy(&m, dst+1, sizeof(m));
-		    transport->SendMessage(this, *iter->second, PBMessage(m)); //iter->second not avaiable for now
+		    int n;
+		    memcpy(&n, dst+1, sizeof(int));
+		    ToClientMessage m;
+		    memcpy(&m, dst+1+sizeof(int), sizeof(m));
+		    auto iter = clientAddresses.find(n);
+		    transport->SendMessage(this, *iter->second, PBMessage(m)); 
 		    break;
 		}
-		case 'n':{
+		case 'n':{//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    client_receive();
+		    break;
+		}
+		case 'o':{//Latency_End(&executeAndReplyLatency)-while loop end, NO transport->SendMessage()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
 		}
 	}
