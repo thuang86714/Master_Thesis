@@ -221,23 +221,32 @@ VRReplica::CommitUpTo(opnum_t upto)
         /* Send reply */
         auto iter = clientAddresses.find(entry->request.clientid());
         if (iter != clientAddresses.end()) {
-            transport->SendMessage(this, *iter->second, PBMessage(m));
-        }
-        timeleft--;
-	
-        Latency_End(&executeAndReplyLatency);
-	if (timeleft>0){
+            //transport->SendMessage(this, *iter->second, PBMessage(m));
+	    memcpy(src+1, &iter, sizeof(iter));
+	    memcpy(src+1+sizeof(iter), &m, sizeof(m));
+	    timeleft--;
+	    Latency_End(&executeAndReplyLatency);
+	    if (timeleft>0){
 		memset(src,'l',1);
-		memcpy(src+1, ,sizeof());//iter
-		memcpy(src+1+sizeof(), &m, sizeof(m));
 		client_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
-	}else{
+	    }else{
 		memset(src,'m',1);
-		memset(src+1, ,sizeof());//iter
-		memcpy(src+1+sizeof(), &m, sizeof(m));
 		client_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
+	    }
+	}else{
+	    timeleft--;
+	    Latency_End(&executeAndReplyLatency);
+	    if (timeleft>0){
+		memset(src,'n',1);
+		client_send();
+		process_work_completion_events(io_completion_channel, wc, 1);
+	    }else{
+		memset(src,'o',1);
+		client_send();
+		process_work_completion_events(io_completion_channel, wc, 1);
+	    }
 	}
     }
 }
