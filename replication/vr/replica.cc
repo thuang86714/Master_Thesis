@@ -413,6 +413,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //commit
 	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
 	    client_send();
+	    process_work_completion_events(io_completion_channel, wc, 1);
 	    client_receive();
             break;
 	}
@@ -1134,22 +1135,29 @@ VRReplica::client_receive()
 		}
 		//below are reserved for non-handle functions()
 		case 'k':{//CommitUpto--Latency_Start
-		    process_work_completion_events(io_completion_channel, wc, 2);
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_Start(&executeAndReplyLatency);
 		    client_receive();
 		    break;
 		}
-		case 'l':{//CommitUpto --Latency_End
+		case 'l':{//CommitUpto--Latency_End(&executeAndReplyLatency)--still in while loop
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_End(&executeAndReplyLatency);
-		    break;
-		}
-	        case 'm':{//CommitUpto--transport
-		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToClientMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
-		    transport->SendMessage(this, *iter->second, PBMessage(m));
+		    transport->SendMessage(this, *iter->second, PBMessage(m));//iter->second not avaiable for now
 		    client_receive();
+		    break;
+		}
+	        case 'm':{//CommitUpto--Latency_End(&executeAndReplyLatency)--still in while loop
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    Latency_End(&executeAndReplyLatency);
+		    ToClientMessage m;//order is changed to make sure the latency could be as close to one-machine situation as possible
+		    memcpy(&m, dst+1, sizeof(m));
+		    transport->SendMessage(this, *iter->second, PBMessage(m)); //iter->second not avaiable for now
+		    break;
+		}
+		case 'n':{
 		    break;
 		}
 	}
