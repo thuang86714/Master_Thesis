@@ -16,35 +16,35 @@ from client to server                                              from server t
 'd' remote+Commit                                                  'd' HandlePrepare--ToClientMessage m
 'e' remote+RequestStateTransfer                                    'e' HandleStateTransfer--lastOp changed
 'f' remote+StateTransfer                                           'f' HandleStartViewChange--ToReplicaMessage m
-'g' remote+StartViewChange                                         'g' HandleDoViewChange--ToReplicaMessage m
-'h' remote+DoViewChange                                            'h' HandleStartView--lastOp changed
+'g' remote+StartViewChange                                         *'g' HandleDoViewChange--lastOp+ToReplicaMessage m
+'h' remote+DoViewChange                                            *'h' HandleStartView--lastOp changed+client_receive()
 'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
-'j' remote+Recovery                                                'j' HandleRecovery--lastOp changed
+'j' remote+Recovery                                                *'j' HandleRecoveryResponse--lastOp changed+client_receive()
 'k' remote+RecoveryResponse                                        'k' Latency_Start(&executeAndReplyLatency)
-'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)
-'m' RequestStateTransfer                                           'm' CommitUpto--transport
-'n' clientAddress.insert                                           'n'
-'o' UpdateClientTable()                                            'o'
-'p' LeaderUpCall()
-'q' ++this->lastOp;
-'r' log.Append()
-'s' CommitUpto(msg.opnum())
-'t' send lastop, batchcomplete=false,
-resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)-still in while loop, CommitUpto--transport
+'m' RequestStateTransfer                                           *'m' Latency_End(&executeAndReplyLatency)--while loop end, CommitUpto--transport
+'n' clientAddress.insert                                           'n' Latency_End(&executeAndReplyLatency)-still in while loop, NO CommitUpto--transport
+'o' UpdateClientTable()                                            *'o' Latency_End(&executeAndReplyLatency)--while loop end, NO CommitUpto--transport
+'p' LeaderUpCall()                                                 'p' 
+'q' ++this->lastOp;                                                'q' sendPrepareOK->transport
+'r' log.Append()                                                   'r' 
+'s' CommitUpto(msg.opnum())                                        's' RequestStateTransfer()->transport
+'t' send lastop, batchcomplete=false,                              't' EnterView->Amleader==true (view, stauts, lastBatched, batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
+resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete, nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), prepareOKQuorum.Clear();, client_receive()
 'u' 
-'v' NullCOmmitTimeout->start()
-'w' NullCOmmitTimeout->Reset()
-'x' CloseBatchTimeout->Start()
-'y' CloseBatchTimeout->Stop()
-'z' resendPrepareTimeout->Reset()
+'v' NullCOmmitTimeout->start()                                     'v' StartViewChange+view, status, nullCommitTimeout->Stop();resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
+'w' NullCOmmitTimeout->Reset()                                     'w' StartViewChange, client_receive();
+'x' CloseBatchTimeout->Start()                                     'x' UpdateClientTable->clienttable
+'y' CloseBatchTimeout->Stop()                                      'y' CloseBatch->transport
+'z' resendPrepareTimeout->Reset()                                  'z' HanldeRequestStateTransfer()->transport
 'A' HandleRequest()--clientAddress, updateclienttable()
-'B' HandleRequest()--clientAddress, updateclienttable(), 
-lastOp, new log entry, nullCommitTimeout->Reset();
-'C' HandleRequest()--clientAddress, updateclienttable(), 
-lastOp, new log entry, closeBatchTimeout->Start(), 
-nullCommitTimeout->Reset()
+'B' HandleRequest()--clientAddress, updateclienttable(), lastOp, 
+new log entry, nullCommitTimeout->Reset();
+'C' HandleRequest()--clientAddress, updateclienttable(), lastOp, 
+new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
 'D' HandlePrepareOk--RequestStateTransfer()
 'E' HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
+
 */
 #include "common/replica.h"
 #include "replication/vr/replica.h"
