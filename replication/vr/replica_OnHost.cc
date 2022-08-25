@@ -167,11 +167,11 @@ VRReplica::GenerateNonce() const
     return dis(gen);
 }
 
-//bool
-//VRReplica::AmLeader() const
-//{
-  //  return (configuration.GetLeaderIndex(view) == this->replicaIdx);
-//}
+bool
+VRReplica::AmLeader() const
+{
+    return (configuration.GetLeaderIndex(view) == this->replicaIdx);
+}
 
 void
 VRReplica::CommitUpTo(opnum_t upto)
