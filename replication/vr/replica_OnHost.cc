@@ -1651,6 +1651,8 @@ int main(int argc, char **argv)
 	}
 	//RDMA is ready, do 6 times of rdma Receive to get constructor input
 	//VRReplica(agc =6 );
-	//while(true){RDMA receive+ process_work_completion_events()}
+	while(true){
+		rdma_server_receive();
+	}
 	return 0;
 }
