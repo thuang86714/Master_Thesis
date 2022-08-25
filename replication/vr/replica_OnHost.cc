@@ -1588,75 +1588,138 @@ VRReplica::rdma_server_receive()
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
 	
-	memcpy(type, dst, 1);
-	switch(*type){
-	memset(dst,0, sizeof(dst));
-	memset(type, 0, sizeof(type));
+	
 	//ibv_post_recv();
     	memcpy(type, dst, 1);
 	switch(*type){
-		case 'a':config
+		case 'a':{//config+myIdx+initialize+transport+nullApp
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    
 		    break;
-		case 'A':config
+		}
+		case 'b':{//remote+Unlogged_request
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'b':index
+		}
+		case 'c':{//remote+Prepare
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'c':initialize
+		}
+		case 'd':{//remote+Commit
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'd':transport
+		}
+		case 'e':{//remote+RequestStateTransfer
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'e':nullApp
+		}
+		case 'f':{//remote+StateTransfer
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'f':UnloggedRequest
-			
+		}
+		case 'g':{//remote+StartViewChange
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'g':prepare
-			
+		}
+		case 'h':{//remote+DoViewChange
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'h':commit
-			
+		}
+		case 'i':{//remote+StartView
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'i':RequestStateTransfer
+		}
+		case 'j':{//remote+Recovery 
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-	        case 'j':StateTransfer
+		}
+		case 'k':{//remote+RecoveryResponse 
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-	        case 'k':StartViewChange
+		}
+		case 'l':{//Closebatch 
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'l':DoViewChange
+		}
+		case 'm':{//RequestStateTransfer
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'm':StartView
+		}
+		case 'n':{//clientAddress.insert
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'n':Recovery
+		}
+		case 'o':{//UpdateClientTable()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'o':RecoveryResponse
+		}
+		case 'p':{//LeaderUpCall()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'p':remote
+		}
+		case 'q':{//++this->lastOp;
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'F':UnloggedRequest
-			//HandleUnlogged()
+		}
+		case 'r':{//log.Append() 
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'G':prepare
-			//HandlePrepare()
+		}
+		case 's':{//CommitUpto(msg.opnum())
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'H':commit
-			//
+		}
+		case 't':{//send lastop, batchcomplete=false
+			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'I':RequestStateTransfer
+		}
+		case 'u':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-	        case 'J':StateTransfer
+		}
+		case 'v':{//NullCOmmitTimeout->start()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-	        case 'K':StartViewChange
+		}
+		case 'w':{//NullCOmmitTimeout->Reset()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'L':DoViewChange
+		}
+		case 'x':{//CloseBatchTimeout->Start()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'M':StartView
+		}
+		case 'y':{//CloseBatchTimeout->Stop()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'N':Recovery
+		}
+		case 'z':{//resendPrepareTimeout->Reset()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'O':RecoveryResponse
+		}
+		case 'A':{//HandleRequest()--clientAddress, updateclienttable()
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
-		case 'P':remote
+		}
+		case 'B':{//HandleRequest()--clientAddress, updateclienttable(), 
+			//lastOp, new log entry, nullCommitTimeout->Reset();
+		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
+		}
+		case 'C':{//HandleRequest()--clientAddress, updateclienttable(),
+			//lastOp, new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'D':{//HandlePrepareOk--RequestStateTransfer()
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'E':{//HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
 		
 	}
 }
@@ -1678,6 +1741,7 @@ int main(int argc, char **argv)
 	static struct ibv_sge client_recv_sge, server_send_sge;
 	static char *src = NULL, *dst = NULL; *type = NULL;
 	int ret;
+	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
@@ -1713,8 +1777,10 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
+	rdma_server_receive();
+	VR = new VRReplica(config,myIdx, true,transport, 1, nullApp);
 	//RDMA is ready, do 6 times of rdma Receive to get constructor input
-	//VRReplica(agc =6 );
+	//VRReplica(agc =6 )
 	while(true){
 		rdma_server_receive();
 	}
