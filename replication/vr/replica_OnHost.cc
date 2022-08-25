@@ -178,7 +178,7 @@ VRReplica::CommitUpTo(opnum_t upto)
 {   int timeleft = upto - lastCommitted;
     while (timeleft > 0) {
         Latency_Start(&executeAndReplyLatency);
-        memset(, 'k', 1);
+        memset(src, 'k', 1);
 	server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
         //lastCommitted++;
