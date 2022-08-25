@@ -1131,6 +1131,7 @@ VRReplica::client_receive()
 		case 'h':{//HandleStartView--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
+	            rdma_client_receive();
 		    break;
 		}
 		case 'i':{//HandleRecovery--ToReplicaMessage m 
@@ -1145,6 +1146,7 @@ VRReplica::client_receive()
 		case 'j':{//HandleRecoveryResponse--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
+		    rdma_client_receive();
 		    break;
 		}
 		//below are reserved for non-handle functions()
@@ -1166,6 +1168,7 @@ VRReplica::client_receive()
 		    client_receive();
 		    break;
 		}
+		/*
 		case 'm':{//Latency_End(&executeAndReplyLatency)-while loop end, transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    int n;
@@ -1176,12 +1179,73 @@ VRReplica::client_receive()
 		    transport->SendMessage(this, *iter->second, PBMessage(m)); 
 		    break;
 		}
+		*/
 		case 'n':{//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    client_receive();
 		    break;
 		}
+		/*
 		case 'o':{//Latency_End(&executeAndReplyLatency)-while loop end, NO transport->SendMessage()
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		*/
+	        case 'p':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'q':{//sendPrepareOks->transport
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ToReplicaMessage m;
+		    int leader = (view % 3);
+		    memcpy(&m, dst+1, sizeof(m));
+		    if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
+                    RWarning("Failed to send PrepareOK message to leader");
+                    }
+		    break;
+		}
+		case 'r':{//Not defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+	        case 's':{//RequestStateTransfer()->transport
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ToReplicaMessage m;
+		    memcpy(&m, dst+1, sizeof(m));
+		    if (!transport->SendMessageToAll(this, PBMessage(m))) {
+        	    RWarning("Failed to send RequestStateTransfer message to all replicas");
+   		    }
+		    break;
+		}
+		case 't':{//EnterView->Amleader==true (view, stauts, lastBatched, 
+			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    Amleader = true;
+		    memcpy();
+		    memcpy();
+		    memcpy();
+		    memcpy();
+		    break;
+		}
+		case 'p':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		
+		    break;
+		}
+		case 'p':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'p':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'p':{//Not Defined
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    break;
+		}
+		case 'p':{//Not Defined
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
 		}
