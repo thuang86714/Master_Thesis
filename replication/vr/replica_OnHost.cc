@@ -274,15 +274,18 @@ VRReplica::SendPrepareOKs(opnum_t oldLastOp)
         reply->set_view(view);
         reply->set_opnum(i);
         reply->set_replicaidx(this->replicaIdx);
-
+       
         RDebug("Sending PREPAREOK " FMT_VIEWSTAMP " for new uncommitted operation",
                reply->view(), reply->opnum());
-
-        if (!(transport->SendMessageToReplica(this,
-                                              configuration.GetLeaderIndex(view),
-                                              PBMessage(m)))) {
+        memset(src, 'q', 1);
+	memcpy(src+1, &m, sizeof(m));
+	server_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
+	/*   
+        if (!(transport->SendMessageToReplica(this,configuration.GetLeaderIndex(view),PBMessage(m)))) {
             RWarning("Failed to send PrepareOK message to leader");
         }
+	*/
     }
 }
 
@@ -293,11 +296,18 @@ VRReplica::SendRecoveryMessages()
     RecoveryMessage *recovery = m.mutable_recovery();
     recovery->set_replicaidx(this->replicaIdx);
     recovery->set_nonce(recoveryNonce);
-
+    
     RNotice("Requesting recovery");
+    //how to let client know server is going to send this?
+    memset(src, 'q', 1);
+    memcpy(src+1, &m, sizeof(m));
+    server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send Recovery message to all replicas");
     }
+    */
 }
 
 void
@@ -313,6 +323,9 @@ VRReplica::RequestStateTransfer()
         (lastRequestStateTransferOpnum == lastCommitted)) {
         RDebug("Skipping state transfer request " FMT_VIEWSTAMP
                " because we already requested it", view, lastCommitted);
+	memset(src, 'a', 1);
+	server_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -320,10 +333,15 @@ VRReplica::RequestStateTransfer()
 
     this->lastRequestStateTransferView = view;
     this->lastRequestStateTransferOpnum = lastCommitted;
-
+    memset(src, 's', 1);
+    memcpy(src+1, &m, sizeof(m));
+    server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send RequestStateTransfer message to all replicas");
     }
+    */
 }
 
 void
@@ -335,17 +353,25 @@ VRReplica::EnterView(view_t newview)
     status = STATUS_NORMAL;
     lastBatchEnd = lastOp;
     batchComplete = true;
-
+    memcpy(src+1, &view, sizeof(view));
+    memcpy(src+1+sizeof(view), &status, sizeof(status));
+    memcpy(src+1+sizeof(view)+sizeof(status), &lastBatchEnd, sizeof(lastBatchEnd));
     recoveryTimeout->Stop();
 
     if (AmLeader()) {
         viewChangeTimeout->Stop();
         nullCommitTimeout->Start();
+	memset(src, 't', 1);
+	server_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
     } else {
         viewChangeTimeout->Start();
         nullCommitTimeout->Stop();
         resendPrepareTimeout->Stop();
         closeBatchTimeout->Stop();
+	memset(src, 'u', 1);
+	server_send();
+	process_work_completion_events(io_completion_channel, wc, 1);
     }
 
     prepareOKQuorum.Clear();
@@ -366,16 +392,25 @@ VRReplica::StartViewChange(view_t newview)
     nullCommitTimeout->Stop();
     resendPrepareTimeout->Stop();
     closeBatchTimeout->Stop();
-
+    memset(src, 'v', 1);
+    memcpy(src+1, &view, sizeof(view));
+    memcpy(src+1+sizeof(m), &status, sizeof(status));
+    server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
     svc->set_view(newview);
     svc->set_replicaidx(this->replicaIdx);
     svc->set_lastcommitted(lastCommitted);
-
+    memset(src, 'w', 1);
+    memcpy(src+1, &m, sizeof(m));
+    server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send StartViewChange message to all replicas");
     }
+    */
 }
 
 void
