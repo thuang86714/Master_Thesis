@@ -1398,12 +1398,17 @@ VRReplica::send_server_metadata_to_client()
 			client_metadata_attr.length);
 	/* We need to setup requested memory buffer. This is where the client will 
 	* do RDMA READs and WRITEs. */
-       server_buffer_mr = rdma_buffer_alloc(pd /* which protection domain */, 
-		       client_metadata_attr.length /* what size to allocate */, 
+       server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
+		       src, sizeof(src), /* what size to allocate */, 
 		       (IBV_ACCESS_LOCAL_WRITE|
 		       IBV_ACCESS_REMOTE_READ|
 		       IBV_ACCESS_REMOTE_WRITE) /* access permissions */);
-       if(!server_buffer_mr){
+	server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
+		       dst, sizeof(dst), /* what size to allocate */, 
+		       (IBV_ACCESS_LOCAL_WRITE|
+		       IBV_ACCESS_REMOTE_READ|
+		       IBV_ACCESS_REMOTE_WRITE)
+       if(!server_src_mr){
 	       rdma_error("Server failed to create a buffer \n");
 	       /* we assume that it is due to out of memory error */
 	       return -ENOMEM;
@@ -1415,9 +1420,9 @@ VRReplica::send_server_metadata_to_client()
         * We need to prepare a send I/O operation that will tell the 
 	* client the address of the server buffer. 
 	*/
-       server_metadata_attr.address = (uint64_t) server_buffer_mr->addr;
-       server_metadata_attr.length = (uint32_t) server_buffer_mr->length;
-       server_metadata_attr.stag.local_stag = (uint32_t) server_buffer_mr->lkey;
+       server_metadata_attr.address = (uint64_t) server_dst_mr->addr;
+       server_metadata_attr.length = (uint32_t) server_dst_mr->length;
+       server_metadata_attr.stag.local_stag = (uint32_t) server_dst_mr->lkey;
        server_metadata_mr = rdma_buffer_register(pd /* which protection domain*/, 
 		       &server_metadata_attr /* which memory to register */, 
 		       sizeof(server_metadata_attr) /* what is the size of memory */,
@@ -1504,7 +1509,8 @@ VRReplica::disconnect_and_cleanup()
 		// we continue anyways;
 	}
 	/* Destroy memory buffers */
-	rdma_buffer_free(server_buffer_mr);
+	rdma_buffer_deregister(server_src_mr);
+	rdma_buffer_deregister(server_dst_mr);
 	rdma_buffer_deregister(server_metadata_mr);	
 	rdma_buffer_deregister(client_metadata_mr);	
 	/* Destroy protection domain */
@@ -1530,6 +1536,32 @@ VRReplica::server_send(){
 	
 void
 VRReplica::server_receive(){
+{
+	memset(dst,0, sizeof(dst));
+	memset(type, 0, sizeof(type));
+	/* Now we prepare a READ using same variables but for destination */
+	client_recv_sge.addr = (uint64_t) server_dst_mr->addr;
+	client_recv_sge.length = (uint32_t) server_dst_mr->length;
+	client_recv_sge.lkey = server_dst_mr->lkey;
+	/* now we link to the send work request */
+	bzero(&client_recv_wr, sizeof(client_recv_wr));
+	client_recv_wr.sg_list = &server_send_sge;
+	client_recv_wr.num_sge = 1;
+	/* Now we post it */
+	ret = ibv_post_rcv(client_qp, 
+		       &client_recv_wr,
+	       &bad_client_recv_wr);
+	if (ret) {
+		rdma_error("Failed to receive client dst buffer from the server, errno: %d \n", 
+				-errno);
+		return -errno;
+	}
+	// at this point we are expecting 1 work completion for the write 
+	//leave process_work_completion_events()
+	debug("Client side receive is complete \n");
+	
+	memcpy(type, dst, 1);
+	switch(*type){
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
 	//ibv_post_recv();
@@ -1611,7 +1643,7 @@ int main(int argc, char **argv)
 	static struct ibv_qp_init_attr qp_init_attr;
 	static struct ibv_qp *client_qp = NULL;
 	/* RDMA memory resources */
-	static struct ibv_mr *client_metadata_mr = NULL, *server_buffer_mr = NULL, *server_metadata_mr = NULL;
+	static struct ibv_mr *client_metadata_mr = NULL, *server_metadata_mr = NULL, *server_src_mr = NULL, *server_dst_mr = NULL;
 	static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
 	static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
 	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
@@ -1623,6 +1655,10 @@ int main(int argc, char **argv)
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
 	const char RDMA_CLIENT_ADDR = 10.1.0.7;
+	src = dst = NULL;
+        src = (char *)calloc(1073741824,1); 
+        dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+        type = (char *)calloc(sizeof(char),1);
 	ret = get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
 	if (ret) {
 		rdma_error("Invalid IP \n");
