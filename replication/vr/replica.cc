@@ -1056,10 +1056,10 @@ VRReplica::rdma_client_receive()
 	server_recv_sge.lkey = client_dst_mr->lkey;
 	/* now we link to the send work request */
 	bzero(&server_recv_wr, sizeof(server_recv_wr));
-	server_recv_wr.sg_list = &client_send_sge;
+	server_recv_wr.sg_list = &server_recv_sge;
 	server_recv_wr.num_sge = 1;
 	/* Now we post it */
-	ret = ibv_post_rcv(client_qp, 
+	ret = ibv_post_recv(client_qp, 
 		       &server_recv_wr,
 	       &bad_server_recv_wr);
 	if (ret) {
