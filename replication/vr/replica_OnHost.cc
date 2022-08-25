@@ -406,7 +406,9 @@ VRReplica::UpdateClientTable(const Request &req)
     entry.replied = false;
     entry.reply.Clear();
     memset(src, 'x', 1);
-    memcpy(src+1, &clientTable, sizeof(clientTable));
+    int sizeofclientTable = sizeof(clientTable);
+    memcpy(src+1, &sizeofclientTable, sizeof(int));
+    memcpy(src+1+sizeof(int), &clientTable, sizeof(clientTable));
     rdma_server_send();
     process_work_completion_events(io_completion_channel, wc, 1);
 }
