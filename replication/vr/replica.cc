@@ -185,7 +185,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     client_send();
     client_receive();
     process_work_completion_events(io_completion_channel, wc, 2);
-    /* Move these 3 Timeout to N10
+    /* Move these 2 Timeout to N10
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
@@ -195,15 +195,14 @@ VRReplica::VRReplica(Configuration config, int myIdx,
             this->lastRequestStateTransferOpnum = 0;
         });
     this->stateTransferTimeout->Start();
+    */
+    //the rest 3 Timeout are actually also part of logic on N10, but I will solve it by RDMA communication.
     this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
             SendRecoveryMessages();
         });
-    */
-    //the rest 3 Timeout are actually also part of logic on N10, but I will soolve it by RDMA communication.
     this->nullCommitTimeout = new Timeout(transport, 1000, [this]() {
             SendNullCommit();
         });
-    
     this->resendPrepareTimeout = new Timeout(transport, 500, [this]() {
             ResendPrepare();
         });
@@ -269,7 +268,22 @@ VRReplica::AmLeader() const
     return (configuration.GetLeaderIndex(view) == this->replicaIdx);
 }		  
 */
-		  
+void
+VRReplica::SendRecoveryMessages()
+{
+    ToReplicaMessage m;
+    RecoveryMessage *recovery = m.mutable_recovery();
+    recovery->set_replicaidx(this->replicaIdx);
+    recovery->set_nonce(recoveryNonce);
+    
+    RNotice("Requesting recovery");
+    
+    
+    if (!transport->SendMessageToAll(this, PBMessage(m))) {
+        RWarning("Failed to send Recovery message to all replicas");
+    }
+    
+}
 //send prepare message
 //No need tidy up
 void
