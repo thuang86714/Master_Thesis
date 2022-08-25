@@ -179,7 +179,7 @@ VRReplica::CommitUpTo(opnum_t upto)
     while (timeleft > 0) {
         Latency_Start(&executeAndReplyLatency);
         memset(src, 'k', 1);
-	server_send();
+	rdma_server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
         //lastCommitted++;
 
@@ -229,11 +229,11 @@ VRReplica::CommitUpTo(opnum_t upto)
 	    Latency_End(&executeAndReplyLatency);
 	    if (timeleft>0){
 		memset(src,'l',1);
-		client_send();
+		rdma_server_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
 	    }else{
 		memset(src,'m',1);
-		client_send();
+		rdma_server_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
 	    }
 	}else{
@@ -241,11 +241,11 @@ VRReplica::CommitUpTo(opnum_t upto)
 	    Latency_End(&executeAndReplyLatency);
 	    if (timeleft>0){
 		memset(src,'n',1);
-		client_send();
+		rdma_server_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
 	    }else{
 		memset(src,'o',1);
-		client_send();
+		rdma_server_send();
 		process_work_completion_events(io_completion_channel, wc, 1);
 	    }
 	}
@@ -279,7 +279,7 @@ VRReplica::SendPrepareOKs(opnum_t oldLastOp)
                reply->view(), reply->opnum());
         memset(src, 'q', 1);
 	memcpy(src+1, &m, sizeof(m));
-	server_send();
+	rdma_server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
 	/*   
         if (!(transport->SendMessageToReplica(this,configuration.GetLeaderIndex(view),PBMessage(m)))) {
@@ -304,7 +304,7 @@ VRReplica::RequestStateTransfer()
         RDebug("Skipping state transfer request " FMT_VIEWSTAMP
                " because we already requested it", view, lastCommitted);
 	memset(src, 'a', 1);
-	server_send();
+	rdma_server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
@@ -315,7 +315,7 @@ VRReplica::RequestStateTransfer()
     this->lastRequestStateTransferOpnum = lastCommitted;
     memset(src, 's', 1);
     memcpy(src+1, &m, sizeof(m));
-    server_send();
+    rdma_server_send();
     process_work_completion_events(io_completion_channel, wc, 1);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
@@ -342,7 +342,7 @@ VRReplica::EnterView(view_t newview)
         viewChangeTimeout->Stop();
         nullCommitTimeout->Start();
 	memset(src, 't', 1);
-	server_send();
+	rdma_server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
     } else {
         viewChangeTimeout->Start();
@@ -350,7 +350,7 @@ VRReplica::EnterView(view_t newview)
         resendPrepareTimeout->Stop();
         closeBatchTimeout->Stop();
 	memset(src, 'u', 1);
-	server_send();
+	rdma_server_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
     }
 
@@ -375,7 +375,7 @@ VRReplica::StartViewChange(view_t newview)
     memset(src, 'v', 1);
     memcpy(src+1, &view, sizeof(view));
     memcpy(src+1+sizeof(m), &status, sizeof(status));
-    server_send();
+    rdma_server_send();
     process_work_completion_events(io_completion_channel, wc, 1);
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
@@ -384,7 +384,7 @@ VRReplica::StartViewChange(view_t newview)
     svc->set_lastcommitted(lastCommitted);
     memset(src, 'w', 1);
     memcpy(src+1, &m, sizeof(m));
-    server_send();
+    rdma_server_send();
     process_work_completion_events(io_completion_channel, wc, 1);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
@@ -408,6 +408,10 @@ VRReplica::UpdateClientTable(const Request &req)
     entry.lastReqId = req.clientreqid();
     entry.replied = false;
     entry.reply.Clear();
+    memset(src, 'x', 1);
+    memcpy(src+1, &clientTable, sizeof(clientTable));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
 }
 
 void
@@ -416,7 +420,7 @@ VRReplica::CloseBatch()
     ASSERT(AmLeader());
     ASSERT(lastBatchEnd < lastOp);
 
-    opnum_t batchStart = lastBatchEnd+1;
+    //opnum_t batchStart = lastBatchEnd+1;
 
     RDebug("Sending batched prepare from " FMT_OPNUM
            " to " FMT_OPNUM,
@@ -436,7 +440,11 @@ VRReplica::CloseBatch()
         ASSERT(entry->viewstamp.opnum == i);
         *r = entry->request;
     }
-
+    memset(src, 'y', 1);
+    memcpy(src+1, &lastPrepare, sizeof(lastPrepare));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
         RWarning("Failed to send prepare message to all replicas");
     }
@@ -445,6 +453,7 @@ VRReplica::CloseBatch()
 
     resendPrepareTimeout->Reset();
     closeBatchTimeout->Stop();
+    */
 }
     
 /*
@@ -492,118 +501,7 @@ VRReplica::CloseBatch()
     }
 }
 */
-/*
-void
-VRReplica::HandleRequest(const TransportAddress &remote,
-                         const RequestMessage &msg)
-{
-    viewstamp_t v;
-    Latency_Start(&requestLatency);
 
-    if (status != STATUS_NORMAL) {
-        RNotice("Ignoring request due to abnormal status");
-        Latency_EndType(&requestLatency, 'i');
-        return;
-    }
-
-    if (!AmLeader()) {
-        RDebug("Ignoring request because I'm not the leader");
-        Latency_EndType(&requestLatency, 'i');
-        return;
-    }
-
-    // Save the client's address
-    clientAddresses.erase(msg.req().clientid());
-    clientAddresses.insert(
-        std::pair<uint64_t, std::unique_ptr<TransportAddress> >(
-            msg.req().clientid(),
-            std::unique_ptr<TransportAddress>(remote.clone())));
-
-    // Check the client table to see if this is a duplicate request
-    auto kv = clientTable.find(msg.req().clientid());
-    if (kv != clientTable.end()) {
-        ClientTableEntry &entry = kv->second;
-        if (msg.req().clientreqid() < entry.lastReqId) {
-            RNotice("Ignoring stale request");
-            Latency_EndType(&requestLatency, 's');
-            return;
-        }
-        if (msg.req().clientreqid() == entry.lastReqId) {
-            // This is a duplicate request. Resend the reply if we
-            // have one. We might not have a reply to resend if we're
-            // waiting for the other replicas; in that case, just
-            // discard the request.
-            if (entry.replied) {
-                RNotice("Received duplicate request; resending reply");
-                if (!(transport->SendMessage(this, remote,
-                                             PBMessage(entry.reply)))) {
-                    RWarning("Failed to resend reply to client");
-                }
-                Latency_EndType(&requestLatency, 'r');
-                return;
-            } else {
-                RNotice("Received duplicate request but no reply available; ignoring");
-                Latency_EndType(&requestLatency, 'd');
-                return;
-            }
-        }
-    }
-
-    // Update the client table
-    UpdateClientTable(msg.req());
-
-    // Leader Upcall
-    bool replicate = false;
-    string res;
-    LeaderUpcall(lastCommitted, msg.req().op(), replicate, res);
-    ClientTableEntry &cte =
-        clientTable[msg.req().clientid()];
-
-    // Check whether this request should be committed to replicas
-    if (!replicate) {
-        RDebug("Executing request failed. Not committing to replicas");
-        ToClientMessage m;
-        ReplyMessage *reply = m.mutable_reply();
-
-        reply->set_reply(res);
-        reply->set_view(0);
-        reply->set_opnum(0);
-        reply->set_clientreqid(msg.req().clientreqid());
-        cte.replied = true;
-        cte.reply = m;
-        transport->SendMessage(this, remote, PBMessage(m));
-        Latency_EndType(&requestLatency, 'f');
-    } else {
-        Request request;
-        request.set_op(res);
-        request.set_clientid(msg.req().clientid());
-        request.set_clientreqid(msg.req().clientreqid());
-
-        /* Assign it an opnum 
-        ++this->lastOp;
-        v.view = this->view;
-        v.opnum = this->lastOp;
-
-        RDebug("Received REQUEST, assigning " FMT_VIEWSTAMP, VA_VIEWSTAMP(v));
-
-        /* Add the request to my log 
-        log.Append(new LogEntry(v, LOG_STATE_PREPARED, request));
-
-        if (batchComplete ||
-            (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
-            CloseBatch();
-        } else {
-            RDebug("Keeping in batch");
-            if (!closeBatchTimeout->Active()) {
-                closeBatchTimeout->Start();
-            }
-        }
-
-        nullCommitTimeout->Reset();
-        Latency_End(&requestLatency);
-    }
-}
-*/
 
 void
 VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
@@ -622,9 +520,14 @@ VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
     Debug("Received unlogged request %s", (char *)msg.req().op().c_str());
 
     ExecuteUnlogged(msg.req(), *reply);
-
+    memset(src, 'c', 1);
+    memcpy(src+1, &m, sizeof(m));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!(transport->SendMessage(this, remote, PBMessage(m))))
         Warning("Failed to send reply message");
+    */
 }
 
 void
@@ -637,10 +540,16 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
     if (this->status != STATUS_NORMAL) {
         RDebug("Ignoring PREPARE due to abnormal status");
         return;
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
     }
 
     if (msg.view() < this->view) {
         RDebug("Ignoring PREPARE due to stale view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -667,11 +576,17 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
         reply->set_view(msg.view());
         reply->set_opnum(msg.opnum());
         reply->set_replicaidx(this->replicaIdx);
+	memset(src, 'd', 1);
+	memcpy(src+1, &m, sizeof(m));
+	rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
+	/*
         if (!(transport->SendMessageToReplica(this,
                                               configuration.GetLeaderIndex(view),
                                               PBMessage(m)))) {
             RWarning("Failed to send PrepareOK message to leader");
         }
+	*/
         return;
     }
 
@@ -690,7 +605,7 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
         }
         this->lastOp++;
         log.Append(new LogEntry(viewstamp_t(msg.view(), op), LOG_STATE_PREPARED, req));
-        UpdateClientTable(req);
+        UpdateClientTable(req);//whether it's the last time to call update clienttable()
     }
     ASSERT(op == msg.opnum());
 
@@ -700,12 +615,17 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
     reply->set_view(msg.view());
     reply->set_opnum(msg.opnum());
     reply->set_replicaidx(this->replicaIdx);
-
+    memset(src, 'd', 1);
+    memcpy(src+1, &m, sizeof(m));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!(transport->SendMessageToReplica(this,
                                           configuration.GetLeaderIndex(view),
                                           PBMessage(m)))) {
         RWarning("Failed to send PrepareOK message to leader");
     }
+    */
 }
 
 /*
