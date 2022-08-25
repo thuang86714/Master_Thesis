@@ -1265,6 +1265,7 @@ VRReplica::client_receive()
 		    if (!transport->SendMessageToAll(this, PBMessage(m))) {
        		    RWarning("Failed to send StartViewChange message to all replicas");
     		    }
+		    client_receive();
 		    break;
 		}
 		case 'x':{//UpdateClientTable->clienttable
