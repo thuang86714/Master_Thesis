@@ -289,26 +289,6 @@ VRReplica::SendPrepareOKs(opnum_t oldLastOp)
     }
 }
 
-void
-VRReplica::SendRecoveryMessages()
-{
-    ToReplicaMessage m;
-    RecoveryMessage *recovery = m.mutable_recovery();
-    recovery->set_replicaidx(this->replicaIdx);
-    recovery->set_nonce(recoveryNonce);
-    
-    RNotice("Requesting recovery");
-    //how to let client know server is going to send this?
-    memset(src, 'q', 1);
-    memcpy(src+1, &m, sizeof(m));
-    server_send();
-    process_work_completion_events(io_completion_channel, wc, 1);
-    /*
-    if (!transport->SendMessageToAll(this, PBMessage(m))) {
-        RWarning("Failed to send Recovery message to all replicas");
-    }
-    */
-}
 
 void
 VRReplica::RequestStateTransfer()
@@ -413,20 +393,6 @@ VRReplica::StartViewChange(view_t newview)
     */
 }
 
-void
-VRReplica::SendNullCommit()
-{
-    ToReplicaMessage m;
-    CommitMessage *c = m.mutable_commit();
-    c->set_view(this->view);
-    c->set_opnum(this->lastCommitted);
-
-    ASSERT(AmLeader());
-
-    if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
-        RWarning("Failed to send null COMMIT message to all replicas");
-    }
-}
 
 void
 VRReplica::UpdateClientTable(const Request &req)
@@ -443,20 +409,6 @@ VRReplica::UpdateClientTable(const Request &req)
     entry.replied = false;
     entry.reply.Clear();
 }
-
-void
-VRReplica::ResendPrepare()
-{
-    ASSERT(AmLeader());
-    if (lastOp == lastCommitted) {
-        return;
-    }
-    RNotice("Resending prepare");
-    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
-        RWarning("Failed to ressend prepare message to all replicas");
-    }
-}
-
 
 void
 VRReplica::CloseBatch()
@@ -496,15 +448,6 @@ VRReplica::CloseBatch()
 }
     
 /*
-void
-VRReplica::ReceiveMessage(const TransportAddress &remote,
-                          void *buf, size_t size)
-{
-    static ToReplicaMessage replica_msg;
-    static PBMessage m(replica_msg);
-
-    m.Parse(buf, size);
-
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:
             HandleRequest(remote, replica_msg.request());
