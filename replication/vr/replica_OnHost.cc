@@ -1531,7 +1531,8 @@ VRReplica::disconnect_and_cleanup()
 }
 	
 void
-VRReplica::rdma_server_send(){
+VRReplica::rdma_server_send()
+{
 	struct ibv_wc wc;
 	
 	/* Step 1: is to copy the local buffer into the remote buffer. We will 
@@ -1541,7 +1542,7 @@ VRReplica::rdma_server_send(){
 	server_send_sge.length = (uint32_t) server_src_mr->length;
 	server_send_sge.lkey = server_src_mr->lkey;
 	/* now we link to the send work request */
-	bzero(&client_send_wr, sizeof(client_send_wr));
+	bzero(&server_send_wr, sizeof(server_send_wr));
 	server_send_wr.sg_list = &server_send_sge;
 	server_send_wr.num_sge = 1;
 	server_send_wr.opcode = IBV_WR_SEND;
@@ -1551,8 +1552,8 @@ VRReplica::rdma_server_send(){
 	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
 	/* Now we post it */
 	ret = ibv_post_send(client_qp, 
-		       &client_send_wr,
-	       &bad_client_send_wr);
+		       &server_send_wr /* Send request that we prepared before */, 
+		       &bad_server_send_wr);
 	if (ret) {
 		rdma_error("Failed to send client src buffer, errno: %d \n", 
 				-errno);
@@ -1562,7 +1563,7 @@ VRReplica::rdma_server_send(){
 }
 	
 void
-VRReplica::rdma_server_receive(){
+VRReplica::rdma_server_receive()
 {
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
