@@ -1531,11 +1531,11 @@ VRReplica::disconnect_and_cleanup()
 }
 	
 void
-VRReplica::server_send(){
+VRReplica::rdma_server_send(){
 }
 	
 void
-VRReplica::server_receive(){
+VRReplica::rdma_server_receive(){
 {
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
