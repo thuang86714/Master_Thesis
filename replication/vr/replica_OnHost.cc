@@ -366,13 +366,12 @@ VRReplica::StartViewChange(view_t newview)
 
     view = newview;
     status = STATUS_VIEW_CHANGE;
-
+    memset(src, 'v', 1);
+    memcpy(src+1, &view, sizeof(view));
     viewChangeTimeout->Reset();
     nullCommitTimeout->Stop();
     resendPrepareTimeout->Stop();
     closeBatchTimeout->Stop();
-    memset(src, 'v', 1);
-    memcpy(src+1, &view, sizeof(view));
     rdma_server_send();
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
@@ -455,53 +454,6 @@ VRReplica::CloseBatch()
     */
 }
     
-/*
-    switch (replica_msg.msg_case()) {
-        case ToReplicaMessage::MsgCase::kRequest:
-            HandleRequest(remote, replica_msg.request());
-            break;
-        case ToReplicaMessage::MsgCase::kUnloggedRequest:
-            HandleUnloggedRequest(remote, replica_msg.unlogged_request());
-            break;
-        case ToReplicaMessage::MsgCase::kPrepare:
-            HandlePrepare(remote, replica_msg.prepare());
-            break;
-        case ToReplicaMessage::MsgCase::kPrepareOk:
-            HandlePrepareOK(remote, replica_msg.prepare_ok());
-            break;
-        case ToReplicaMessage::MsgCase::kCommit:
-            HandleCommit(remote, replica_msg.commit());
-            break;
-        case ToReplicaMessage::MsgCase::kRequestStateTransfer:
-            HandleRequestStateTransfer(remote,
-                    replica_msg.request_state_transfer());
-            break;
-        case ToReplicaMessage::MsgCase::kStateTransfer:
-            HandleStateTransfer(remote, replica_msg.state_transfer());
-            break;
-        case ToReplicaMessage::MsgCase::kStartViewChange:
-            HandleStartViewChange(remote, replica_msg.start_view_change());
-            break;
-        case ToReplicaMessage::MsgCase::kDoViewChange:
-            HandleDoViewChange(remote, replica_msg.do_view_change());
-            break;
-        case ToReplicaMessage::MsgCase::kStartView:
-            HandleStartView(remote, replica_msg.start_view());
-            break;
-        case ToReplicaMessage::MsgCase::kRecovery:
-            HandleRecovery(remote, replica_msg.recovery());
-            break;
-        case ToReplicaMessage::MsgCase::kRecoveryResponse:
-            HandleRecoveryResponse(remote, replica_msg.recovery_response());
-            break;
-        default:
-            RPanic("Received unexpected message type %u",
-                    replica_msg.msg_case());
-    }
-}
-*/
-
-
 void
 VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
                                  const UnloggedRequestMessage &msg)
@@ -675,6 +627,9 @@ VRReplica::HandleCommit(const TransportAddress &remote,
     }
 
     CommitUpTo(msg.opnum());
+    memset(src, 'a', 1);
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
 }
 
 
@@ -803,6 +758,9 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
         HandlePrepare(*msgpair.first, msgpair.second);
         delete msgpair.first;
     }
+    memset(src, 'a', 1);
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
 }
 
 void
@@ -862,7 +820,7 @@ VRReplica::HandleStartViewChange(const TransportAddress &remote,
 
             log.Dump(minCommitted,
                      dvc->mutable_entries());
-            memset(src, 'a', 1);
+            memset(src, 'f', 1);
 	    memcpy(src+1, &m, sizeof(m));
             rdma_server_send();
             process_work_completion_events(io_completion_channel, wc, 1);
@@ -1163,6 +1121,9 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
         rdma_server_send();
         process_work_completion_events(io_completion_channel, wc, 1);
         CommitUpTo(leaderResponse->second.lastcommitted());
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
     }
 }
 
