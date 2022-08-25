@@ -495,7 +495,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //recovery
 	    memcpy(src+1+sizeof(remote), replica_msg.recovery(), sizeof(replica_msg.recovery()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
