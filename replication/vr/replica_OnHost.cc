@@ -628,81 +628,6 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
     */
 }
 
-/*
-void
-VRReplica::HandlePrepareOK(const TransportAddress &remote,
-                           const PrepareOKMessage &msg)
-{
-
-    RDebug("Received PREPAREOK <" FMT_VIEW ", "
-           FMT_OPNUM  "> from replica %d",
-           msg.view(), msg.opnum(), msg.replicaidx());
-
-    if (this->status != STATUS_NORMAL) {
-        RDebug("Ignoring PREPAREOK due to abnormal status");
-        return;
-    }
-
-    if (msg.view() < this->view) {
-        RDebug("Ignoring PREPAREOK due to stale view");
-        return;
-    }
-
-    if (msg.view() > this->view) {
-        RequestStateTransfer();
-        return;
-    }
-
-    if (!AmLeader()) {
-        RWarning("Ignoring PREPAREOK because I'm not the leader");
-        return;
-    }
-
-    viewstamp_t vs = { msg.view(), msg.opnum() };
-    if (auto msgs =
-        (prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg))) {
-        /*
-         * We have a quorum of PrepareOK messages for this
-         * opnumber. Execute it and all previous operations.
-         *
-         * (Note that we might have already executed it. That's fine,
-         * we just won't do anything.)
-         *
-         * This also notifies the client of the result.
-         
-        CommitUpTo(msg.opnum());
-
-        if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
-            return;
-        }
-
-        /*
-         * Send COMMIT message to the other replicas.
-         *
-         * This can be done asynchronously, so it really ought to be
-         * piggybacked on the next PREPARE or something.
-         
-        ToReplicaMessage m;
-        CommitMessage *c = m.mutable_commit();
-        c->set_view(this->view);
-        c->set_opnum(this->lastCommitted);
-
-        if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
-            RWarning("Failed to send COMMIT message to all replicas");
-        }
-
-        nullCommitTimeout->Reset();
-
-        // XXX Adaptive batching -- make this configurable
-        if (lastBatchEnd == msg.opnum()) {
-            batchComplete = true;
-            if  (lastOp > lastBatchEnd) {
-                CloseBatch();
-            }
-        }
-    }
-}
-*/
     
 void
 VRReplica::HandleCommit(const TransportAddress &remote,
@@ -712,11 +637,17 @@ VRReplica::HandleCommit(const TransportAddress &remote,
 
     if (this->status != STATUS_NORMAL) {
         RDebug("Ignoring COMMIT due to abnormal status");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
     if (msg.view() < this->view) {
         RDebug("Ignoring COMMIT due to stale view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -733,6 +664,9 @@ VRReplica::HandleCommit(const TransportAddress &remote,
 
     if (msg.opnum() <= this->lastCommitted) {
         RDebug("Ignoring COMMIT; already committed that operation");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -754,6 +688,9 @@ VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
 
     if (status != STATUS_NORMAL) {
         RDebug("Ignoring REQUESTSTATETRANSFER due to abnormal status");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -772,10 +709,14 @@ VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
     reply->set_opnum(lastCommitted);
 
     log.Dump(msg.opnum()+1, reply->mutable_entries());
-
-    transport->SendMessage(this, remote, PBMessage(m));
+    memset(src, 'z', 1);
+    memcpy(src+1, &m, sizeof(m));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    //transport->SendMessage(this, remote, PBMessage(m));
 }
 
+//need to double check
 void
 VRReplica::HandleStateTransfer(const TransportAddress &remote,
                                const StateTransferMessage &msg)
@@ -784,6 +725,9 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
 
     if (msg.view() < view) {
         RWarning("Ignoring state transfer for older view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -819,6 +763,10 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
                 ASSERT(entry->state != LOG_STATE_COMMITTED);
                 log.RemoveAfter(newEntry.opnum());
                 lastOp = newEntry.opnum();
+		memset(src, 'e', 1);
+		memcpy(src+1, &lastOp, sizeof(lastOp));
+                rdma_server_send();
+                process_work_completion_events(io_completion_channel, wc, 1);
                 oldLastOp = lastOp;
 
                 viewstamp_t vs = { newEntry.view(), newEntry.opnum() };
@@ -829,6 +777,10 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
             ASSERT(newEntry.opnum() == lastOp+1);
 
             lastOp++;
+	    memset(src, 'e', 1);
+	    memcpy(src+1, &lastOp, sizeof(lastOp));
+            rdma_server_send();
+            process_work_completion_events(io_completion_channel, wc, 1);
             viewstamp_t vs = { newEntry.view(), newEntry.opnum() };
             log.Append(new LogEntry(vs, LOG_STATE_PREPARED, newEntry.request()));
         }
@@ -863,11 +815,17 @@ VRReplica::HandleStartViewChange(const TransportAddress &remote,
 
     if (msg.view() < view) {
         RDebug("Ignoring STARTVIEWCHANGE for older view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
     if ((msg.view() == view) && (status != STATUS_VIEW_CHANGE)) {
         RDebug("Ignoring STARTVIEWCHANGE for current view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -905,10 +863,15 @@ VRReplica::HandleStartViewChange(const TransportAddress &remote,
 
             log.Dump(minCommitted,
                      dvc->mutable_entries());
-
+            memset(src, 'a', 1);
+	    memcpy(src+1, &m, sizeof(m));
+            rdma_server_send();
+            process_work_completion_events(io_completion_channel, wc, 1);
+	    /*
             if (!(transport->SendMessageToReplica(this, leader, PBMessage(m)))) {
                 RWarning("Failed to send DoViewChange message to leader of new view");
             }
+	    */
         }
     }
 }
@@ -925,11 +888,17 @@ VRReplica::HandleDoViewChange(const TransportAddress &remote,
 
     if (msg.view() < view) {
         RDebug("Ignoring DOVIEWCHANGE for older view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
     if ((msg.view() == view) && (status != STATUS_VIEW_CHANGE)) {
         RDebug("Ignoring DOVIEWCHANGE for current view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -1017,6 +986,8 @@ VRReplica::HandleDoViewChange(const TransportAddress &remote,
         ASSERT(AmLeader());
 
         lastOp = latestOp;
+	memset(src, 'g', 1);
+	memcpy(src+1, &lastOp, sizeof(lastOp));    
         if (latestMsg != NULL) {
             CommitUpTo(latestMsg->lastcommitted());
         }
@@ -1029,10 +1000,14 @@ VRReplica::HandleDoViewChange(const TransportAddress &remote,
         sv->set_lastcommitted(lastCommitted);
 
         log.Dump(minCommitted, sv->mutable_entries());
-
+        memcpy(src+1+sizeof(lastOp), &m, sizeof(m));
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
+	/*
         if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
             RWarning("Failed to send StartView message to all replicas");
         }
+	*/
     }
 }
 
@@ -1048,11 +1023,17 @@ VRReplica::HandleStartView(const TransportAddress &remote,
 
     if (msg.view() < view) {
         RWarning("Ignoring STARTVIEW for older view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
     if ((msg.view() == view) && (status != STATUS_VIEW_CHANGE)) {
         RWarning("Ignoring STARTVIEW for current view");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -1076,11 +1057,17 @@ VRReplica::HandleStartView(const TransportAddress &remote,
     EnterView(msg.view());
     opnum_t oldLastOp = lastOp;
     lastOp = msg.lastop();
-
+    memset(src, 'h', 1);
+    memcpy(src+1, &lastOp, sizeof(lastOp));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
     ASSERT(!AmLeader());
 
     CommitUpTo(msg.lastcommitted());
     SendPrepareOKs(oldLastOp);
+    memset(src, 'a', 1);
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
 }
 
 void
@@ -1091,6 +1078,9 @@ VRReplica::HandleRecovery(const TransportAddress &remote,
 
     if (status != STATUS_NORMAL) {
         RDebug("Ignoring RECOVERY due to abnormal status");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -1104,10 +1094,15 @@ VRReplica::HandleRecovery(const TransportAddress &remote,
         reply->set_lastop(lastOp);
         log.Dump(0, reply->mutable_entries());
     }
-
+    memset(src, 'i', 1);
+    memcpy(src+1, &m, sizeof(m));
+    rdma_server_send();
+    process_work_completion_events(io_completion_channel, wc, 1);
+    /*
     if (!(transport->SendMessage(this, remote, PBMessage(m)))) {
         RWarning("Failed to send recovery response");
     }
+    */
     return;
 }
 
@@ -1120,11 +1115,17 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
 
     if (status != STATUS_RECOVERING) {
         RDebug("Ignoring RECOVERYRESPONSE because we're not recovering");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
     if (msg.nonce() != recoveryNonce) {
         RNotice("Ignoring recovery response because nonce didn't match");
+	memset(src, 'a', 1);
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
 
@@ -1146,6 +1147,9 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
             (leaderResponse->second.view() != highestView)) {
             RDebug("Have quorum of RECOVERYRESPONSE messages, "
                    "but still need to wait for one from the leader");
+	    memset(src, 'a', 1);
+            rdma_server_send();
+            process_work_completion_events(io_completion_channel, wc, 1);
             return;
         }
 
@@ -1155,6 +1159,10 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
                     leaderResponse->second.entries().end());
         EnterView(leaderResponse->second.view());
         lastOp = leaderResponse->second.lastop();
+	memset(src, 'j', 1);
+	memcpy(src+1, &lastOp, sizeof(lastOp));
+        rdma_server_send();
+        process_work_completion_events(io_completion_channel, wc, 1);
         CommitUpTo(leaderResponse->second.lastcommitted());
     }
 }
