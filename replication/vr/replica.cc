@@ -1221,32 +1221,72 @@ VRReplica::client_receive()
 		case 't':{//EnterView->Amleader==true (view, stauts, lastBatched, 
 			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Start();
 		    Amleader = true;
-		    memcpy();
-		    memcpy();
-		    memcpy();
-		    memcpy();
+		    status = STATUS_NORMAL;
+		    memcpy(&view, dst+1, sizeof(view));
+		    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
+		    batchComplete = true;
+		    prepareOKQuorum.Clear();
+		    client_receive();
 		    break;
 		}
-		case 'p':{//Not Defined
+		case 'u':{//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
+			//nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), 
+			//prepareOKQuorum.Clear();, client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		
+		    nullCommitTimeout->Stop();
+        	    resendPrepareTimeout->Stop();
+        	    closeBatchTimeout->Stop();
+		    Amleader = false;
+		    status = STATUS_NORMAL;
+		    memcpy(&view, dst+1, sizeof(view));
+		    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
+		    batchComplete = true;
+		    prepareOKQuorum.Clear();
+		    client_receive();
 		    break;
 		}
-		case 'p':{//Not Defined
+		case 'v':{//StartViewChange+view, status, nullCommitTimeout->Stop();
+			//resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Stop();
+      	 	    resendPrepareTimeout->Stop();
+    		    closeBatchTimeout->Stop();
+		    status = STATUS_VIEW_CHANGE;
+		    memcpy(&view, dst+1, sizeof(view));
+		    client_receive();
 		    break;
 		}
-		case 'p':{//Not Defined
+		case 'w':{//StartViewChange->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ToReplicaMessage m;
+		    memcpy(&m, dst+1, sizeof(m));
+		    if (!transport->SendMessageToAll(this, PBMessage(m))) {
+       		    RWarning("Failed to send StartViewChange message to all replicas");
+    		    }
 		    break;
 		}
-		case 'p':{//Not Defined
+		case 'x':{//UpdateClientTable->clienttable
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    int sizeofclientTable;
+		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
+		    memcpy(clientTable, &dst+1+sizeof(int), sizeofclientTable);
 		    break;
 		}
-		case 'p':{//Not Defined
+		case 'y':{//CloseBatch->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    memcpy(&lastPrepare, dst+1, sizeof(lastPrepare));
+		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
+        	    RWarning("Failed to send prepare message to all replicas");
+                    }
+		    break;
+		}
+		case 'z':{//HanldeRequestStateTransfer()->transport
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ToReplicaMessage m;
+		    memcpy(&m, dst+1, sizeof(m));
+		    transport->SendMessage(this, remote, PBMessage(m));
 		    break;
 		}
 	}
