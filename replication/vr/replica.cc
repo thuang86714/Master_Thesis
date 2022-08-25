@@ -182,7 +182,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize), transport, sizeof(*transport)); //dereference transport
     //copy app
     memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
-    client_send();
+    rdma_client_send();
     client_receive();
     process_work_completion_events(io_completion_channel, wc, 2);
     /* Move these 2 Timeout to N10
@@ -218,7 +218,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         if (AmLeader) {
             nullCommitTimeout->Start();
 	    memset(src, 'v', 1);
-	    client_send();//no need for ack from client side
+	    rdma_client_send();//no need for ack from client side
 	    process_work_completion_events(io_completion_channel, wc, 1);
         } else {
             viewChangeTimeout->Start();
@@ -295,7 +295,7 @@ VRReplica::CloseBatch()
     opnum_t batchStart = lastBatchEnd+1;
     memset(src, 'l', 1); //lowercase L for CloseBatch()
     memcpy(src+1, &batchstart, sizeof(batchstart));
-    client_send();
+    rdma_client_send();
     //need a client_receive() for case 'b' for CloseBatch--PBMessage(lastPrepare) from server;
     client_receive();//client_receive() case 'b'
     /*move this part logic to N10
@@ -329,7 +329,7 @@ VRReplica::CloseBatch()
     closeBatchTimeout->Stop();
     memset(src, 't', 1);
     memcpy(sr+1, &lastOp, sizeof(lastOp));
-    client_send();
+    rdma_client_send();
     process_work_completion_events(io_completion_channel, wc, 3); //an ack to gurantee receive
 }
   
@@ -402,7 +402,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'b', 1);
 	    memcpy(src+1, remote, sizeof(remote));
 	    memcpy(src+1+sizeof(remote), replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
         }
@@ -414,7 +414,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //prepare
 	    memcpy(src+1+sizeof(remote), replica_msg.prepare(), sizeof(replica_msg.prepare()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
 	    break;
         }
@@ -426,7 +426,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //commit
 	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
-	    client_send();
+	    rdma_client_send();
 	    process_work_completion_events(io_completion_channel, wc, 1);
 	    client_receive();
             break;
@@ -439,7 +439,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //req state transfer
 	    memcpy(src+1+sizeof(remote), replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}	    //all lines below have not been scrutinized
@@ -451,7 +451,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //state transfer
 	    memcpy(src+1+sizeof(remote), replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
@@ -462,7 +462,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //start view change
 	    memcpy(src+1+sizeof(remote), replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
@@ -473,7 +473,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //do view change
 	    memcpy(src+1+sizeof(remote), replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
@@ -484,7 +484,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //Start view
 	    memcpy(src+1+sizeof(remote), replica_msg.start_view(), sizeof(replica_msg.start_view()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
@@ -506,7 +506,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, remote, sizeof(remote));
 	    //recovery response
 	    memcpy(src+1, replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
-	    client_send();
+	    rdma_client_send();
 	    client_receive();
             break;
 	}
@@ -599,7 +599,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         cte.reply = m;
         transport->SendMessage(this, remote, PBMessage(m));
         Latency_EndType(&requestLatency, 'f');
-	client_send();
+	rdma_client_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
     } else {
         Request request;
@@ -627,7 +627,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             if (!closeBatchTimeout->Active()) {
                 closeBatchTimeout->Start();
 		memset(src, 'C', 1);
-		client_send();
+		rdma_client_send();
 		nullCommitTimeout->Reset();
         	Latency_End(&requestLatency);
 		process_work_completion_events(io_completion_channel, wc, 1);
@@ -636,7 +636,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         }
 
         nullCommitTimeout->Reset();
-	client_send();
+	rdma_client_send();
         Latency_End(&requestLatency);
 	process_work_completion_events(io_completion_channel, wc, 1);
     }
@@ -665,7 +665,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
     if (msg.view() > this->view) {
         //RequestStateTransfer();
 	memset(src, 'D', 1);
-	client_send();
+	rdma_client_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
         return;
     }
@@ -714,7 +714,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         }
 
         nullCommitTimeout->Reset();
-        client_send();
+        rdma_client_send();
 	process_work_completion_events(io_completion_channel, wc, 1); 
         // XXX Adaptive batching -- make this configurable
         if (lastBatchEnd == msg.opnum()) {
@@ -1002,7 +1002,7 @@ VRReplica::client_xchange_metadata_with_server()
 //Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation. 
 //But according to Page 106, Mellanox Verbs Programming Tutorial (by Dotan Barak) , atomic operation is performance killer
 static int 
-VRReplica::client_send() 
+VRReplica::rdma_client_send()
 {
 	struct ibv_wc wc;
 	
