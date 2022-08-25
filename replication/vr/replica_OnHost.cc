@@ -1532,6 +1532,33 @@ VRReplica::disconnect_and_cleanup()
 	
 void
 VRReplica::rdma_server_send(){
+	struct ibv_wc wc;
+	
+	/* Step 1: is to copy the local buffer into the remote buffer. We will 
+	 * reuse the previous variables. */
+	/* now we fill up SGE */
+	server_send_sge.addr = (uint64_t) server_src_mr->addr;
+	server_send_sge.length = (uint32_t) server_src_mr->length;
+	server_send_sge.lkey = server_src_mr->lkey;
+	/* now we link to the send work request */
+	bzero(&client_send_wr, sizeof(client_send_wr));
+	server_send_wr.sg_list = &server_send_sge;
+	server_send_wr.num_sge = 1;
+	server_send_wr.opcode = IBV_WR_SEND;
+	server_send_wr.send_flags = IBV_SEND_SIGNALED;
+	/* we have to tell server side info for RDMA */
+	//client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
+	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
+	/* Now we post it */
+	ret = ibv_post_send(client_qp, 
+		       &client_send_wr,
+	       &bad_client_send_wr);
+	if (ret) {
+		rdma_error("Failed to send client src buffer, errno: %d \n", 
+				-errno);
+		return -errno;
+	}
+	memset(src, 0, sizeof(src));
 }
 	
 void
@@ -1545,7 +1572,7 @@ VRReplica::rdma_server_receive(){
 	client_recv_sge.lkey = server_dst_mr->lkey;
 	/* now we link to the send work request */
 	bzero(&client_recv_wr, sizeof(client_recv_wr));
-	client_recv_wr.sg_list = &server_send_sge;
+	client_recv_wr.sg_list = &client_recv_sge;
 	client_recv_wr.num_sge = 1;
 	/* Now we post it */
 	ret = ibv_post_rcv(client_qp, 
