@@ -1070,7 +1070,7 @@ VRReplica::client_receive()
 	// at this point we are expecting 1 work completion for the write 
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
-	*/
+	
 	memcpy(type, dst, 1);
 	switch(*type){
 		case 'a':{//ack; for situation that same function may have different returns
