@@ -1101,6 +1101,7 @@ VRReplica::client_receive()
                     memcpy(&m, dst+1, sizeof(m));
                     if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
                     RWarning("Failed to send PrepareOK message to leader");
+	            rdma_client_receive();
 		    break;
 		}
 		case 'e':{//handleStateTransfer--new lastOp
