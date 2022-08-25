@@ -334,8 +334,7 @@ VRReplica::EnterView(view_t newview)
     lastBatchEnd = lastOp;
     batchComplete = true;
     memcpy(src+1, &view, sizeof(view));
-    memcpy(src+1+sizeof(view), &status, sizeof(status));
-    memcpy(src+1+sizeof(view)+sizeof(status), &lastBatchEnd, sizeof(lastBatchEnd));
+    memcpy(src+1+sizeof(view), &lastBatchEnd, sizeof(lastBatchEnd));
     recoveryTimeout->Stop();
 
     if (AmLeader()) {
@@ -374,9 +373,7 @@ VRReplica::StartViewChange(view_t newview)
     closeBatchTimeout->Stop();
     memset(src, 'v', 1);
     memcpy(src+1, &view, sizeof(view));
-    memcpy(src+1+sizeof(m), &status, sizeof(status));
     rdma_server_send();
-    process_work_completion_events(io_completion_channel, wc, 1);
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
     svc->set_view(newview);
@@ -385,7 +382,7 @@ VRReplica::StartViewChange(view_t newview)
     memset(src, 'w', 1);
     memcpy(src+1, &m, sizeof(m));
     rdma_server_send();
-    process_work_completion_events(io_completion_channel, wc, 1);
+    process_work_completion_events(io_completion_channel, wc, 2);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send StartViewChange message to all replicas");
