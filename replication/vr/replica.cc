@@ -1041,7 +1041,7 @@ VRReplica::rdma_client_send()
 	}
 	debug("Client side SEND is complete \n");
 	*/
-	memse(src, 0, sizeof());
+	memset(src, 0, sizeof(src));
 }
 
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
