@@ -1599,143 +1599,189 @@ VRReplica::rdma_server_receive()
 		    Transport *transportptr = NULL;
 		    memcpy(config, dst+1, sizeof(Configuration));
 		    memcpy(myIdx, dst+1+sizeof(Configuration), sizeof(int));
-		    memcpy(transportptr, dst+1+sizeof(config)+sizeof(int), sizeof(Transport));
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.unlogged_request(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.unlogged_request()));
+		    HandleUnloggedRequest(remote, replica_msg.unlogged_request());
 		    break;
 		}
 		case 'c':{//remote+Prepare
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.prepare(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.prepare()));
+		    HandlePrepare(remote, replica_msg.prepare());
 		    break;
 		}
 		case 'd':{//remote+Commit
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.commit(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.commit()));
+		    HandleCommit(remote, replica_msg.commit());
 		    break;
 		}
 		case 'e':{//remote+RequestStateTransfer
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.request_state_transfer(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.request_state_transfer()));
+		    HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
 		    break;
 		}
 		case 'f':{//remote+StateTransfer
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.state_transfer(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.state_transfer()));
+		    HandleStateTransfer(remote, replica_msg.state_transfer());
 		    break;
 		}
 		case 'g':{//remote+StartViewChange
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.start_view_change(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.start_view_change()));
+		    HandleStartViewChange(remote, replica_msg.start_view_change());
 		    break;
 		}
 		case 'h':{//remote+DoViewChange
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&(replica_msg.do_view_change(), dst+1+sizeof(TransportAddress), sizeof((replica_msg.do_view_change()));
+		    HandleDoViewChange(remote, replica_msg.do_view_change());
 		    break;
 		}
 		case 'i':{//remote+StartView
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.start_view(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.start_view()));
+		    HandleStartView(remote, replica_msg.start_view());
 		    break;
 		}
 		case 'j':{//remote+Recovery 
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.recovery(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.recovery()));
+		    HandleRecovery(remote, replica_msg.recovery());
 		    break;
 		}
 		case 'k':{//remote+RecoveryResponse 
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    TransportAddress remote;
+		    ToReplicaMessage replica_msg;
+		    memcpy(&remote, dst+1, sizeof(TransportAddress));
+		    memcpy(&replica_msg.recovery_response(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.recovery_response()));
+		    HandleRecoveryResponse(remote, replica_msg.recovery_response());
 		    break;
 		}
 		case 'l':{//Closebatch 
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    CloseBatch();
-		    break;
-		}
-		case 'm':{//RequestStateTransfer
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
-		case 'n':{//clientAddress.insert
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    clientAddresses.insert(std::pair<uint64_t, std::unique_ptr<TransportAddress> >());
-		    break;
-		}
-		case 'o':{//UpdateClientTable()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    UpdateClientTable();
-		    break;
-		}
-		case 'p':{//LeaderUpCall()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
-		case 'q':{//++this->lastOp;
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    ++this->lastOp;
-		    break;
-		}
-		case 'r':{//log.Append() 
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    log.Append();
-		    break;
-		}
-		case 's':{//CommitUpto(msg.opnum())
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    opnum_t upto;
-		    CommitUpto(upto);
+		    opnum_t batchStart;
+		    memcpy(&batchStart, dst+1, sizeof(opnum_t));
+		    RDebug("Sending batched prepare from " FMT_OPNUM
+           	    " to " FMT_OPNUM,
+           	    batchStart, lastOp);
+                    // Send prepare messages 
+    		    PrepareMessage *p = lastPrepare.mutable_prepare();
+    		    p->set_view(view);
+    		    p->set_opnum(lastOp);
+    		    p->set_batchstart(batchStart);
+    		    p->clear_request();
+
+    		    for (opnum_t i = batchStart; i <= lastOp; i++) {
+        	    	Request *r = p->add_request();
+        	    	const LogEntry *entry = log.Find(i);
+        	    	ASSERT(entry != NULL);
+        	    	ASSERT(entry->viewstamp.view == view);
+        	    	ASSERT(entry->viewstamp.opnum == i);
+        	    	*r = entry->request;
+    		    }
+    		    memset(src, 'y', 1);
+    		    memcpy(src+1, &lastPrepare, sizeof(lastPrepare));
+    	 	    rdma_server_send();
+    		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
 		}
 		case 't':{//send lastop, batchcomplete=false
 			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
-		case 'u':{//Not Defined
-		    process_work_completion_events(io_completion_channel, wc, 1);
+		    resendPrepareTimeout->Reset();
+   		    closeBatchTimeout->Stop();
+		    batchComplete = false;
+		    memcpy(&lastOp, dst+1, sizeof(lastOp));
+		    lastBatchEnd = lastOp;
 		    break;
 		}
 		case 'v':{//NullCOmmitTimeout->start()
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    nullCommitTimeout->Start()
-		    break;
-		}
-		case 'w':{//NullCOmmitTimeout->Reset()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    nullCommitTimeout->Reset();
-		    break;
-		}
-		case 'x':{//CloseBatchTimeout->Start()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    closeBatchTimeout->Start();
-		    break;
-		}
-		case 'y':{//CloseBatchTimeout->Stop()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    closeBatchTimeout->Stop();
-		    break;
-		}
-		case 'z':{//resendPrepareTimeout->Reset()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    resendPrepareTimeout->Reset();
-		    break;
-		}
-		case 'A':{//HandleRequest()--clientAddress, updateclienttable()
-		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Start();
 		    break;
 		}
 		case 'B':{//HandleRequest()--clientAddress, updateclienttable(), 
 			//lastOp, new log entry, nullCommitTimeout->Reset();
+		    nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    int size;
+		    Request req;
+		    LogEntry newlogentry;
+		    memcpy(&size, dst+1, sizeof(int));
+		    memcpy(&clientAddresses, dst+1+sizeof(int), size);
+		    memcpy(&req, dst+1+sizeof(int)+size, sizeof(Request));
+		    UpdateClientTable(req);
+	            memcpy(&lastOp, dst+1+sizeof(int)+size+sizeof(Request), sizeof(lastOp));
+		    memcpy(&newlogentry, dst+1+sizeof(int)+size+sizeof(Request)+sizeof(lastOp), sizeof(LogEntry));
+		    log.Append(newlogentry);
 		    break;
 		}
 		case 'C':{//HandleRequest()--clientAddress, updateclienttable(),
 			//lastOp, new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
+		    closeBatchTimeout->Start();
+		    nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    int size;
+		    Request req;
+		    LogEntry newlogentry;
+		    memcpy(&size, dst+1, sizeof(int));
+		    memcpy(&clientAddresses, dst+1+sizeof(int), size);
+		    memcpy(&req, dst+1+sizeof(int)+size, sizeof(Request));
+		    UpdateClientTable(req);
+	            memcpy(&lastOp, dst+1+sizeof(int)+size+sizeof(Request), sizeof(lastOp));
+		    memcpy(&newlogentry, dst+1+sizeof(int)+size+sizeof(Request)+sizeof(lastOp), sizeof(LogEntry));
+		    log.Append(newlogentry);
 		    break;
 		}
 		case 'D':{//HandlePrepareOk--RequestStateTransfer()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    RequestStateTransfer();
 		    break;
 		}
 		case 'E':{//HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
-		    process_work_completion_events(io_completion_channel, wc, 1);
+			//prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg))
 		    nullCommitTimeout->Reset();
+		    process_work_completion_events(io_completion_channel, wc, 1);
+		    viewstamp_t vs;
+		    PrepareOKMessage msg;
+		    memcpy(&vs, dst+1, sizeof(viewstamp_t));
+		    memcpy(&msg, dst+1+sizeof(viewstamp_t), sizeof(msg));
+		    prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg);
+		    CommitUpTo(msg.opnum());
 		    break;
 		}
 		
@@ -1759,6 +1805,7 @@ int main(int argc, char **argv)
 	static struct ibv_sge client_recv_sge, server_send_sge;
 	static char *src = NULL, *dst = NULL; *type = NULL;
 	int ret;
+	std::string transport_cmdline;
 	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
@@ -1796,7 +1843,8 @@ int main(int argc, char **argv)
 		return ret;
 	}
 	rdma_server_receive();
-	VR = new VRReplica(config, myIdx, true, transportptr, 1, nullApp);
+	transport = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
+	VR = new VRReplica(config, myIdx, true, transport, 1, nullApp);
 	while(true){
 		VR.rdma_server_receive();
 	}
