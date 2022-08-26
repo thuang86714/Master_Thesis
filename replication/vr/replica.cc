@@ -454,7 +454,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
         case ToReplicaMessage::MsgCase::kStartViewChange:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStartViewChange(remote, replica_msg.start_view_change());
-	    memset(src, 'K', 1);
+	    memset(src, 'g', 1);
 	    memcpy(src+1, remote, sizeof(remote));
 	    //start view change
 	    memcpy(src+1+sizeof(remote), replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
