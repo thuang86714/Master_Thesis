@@ -691,7 +691,8 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 	//the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
         //CommitUpTo(msg.opnum());
 	memset(src, 'E', 1);
-	memcpy(src+1, &msg.opnum(), sizeof(msg.opnum()));
+	memcpy(src+1, &vs, sizeof(vs));
+	memcpy(src+1+sizeof(vs), &msg, sizeof(msg));
 	
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
