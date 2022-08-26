@@ -597,8 +597,6 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         cte.reply = m;
         transport->SendMessage(this, remote, PBMessage(m));
         Latency_EndType(&requestLatency, 'f');
-	rdma_client_send();
-	process_work_completion_events(io_completion_channel, wc, 1);
     } else {
         Request request;
         request.set_op(res);
