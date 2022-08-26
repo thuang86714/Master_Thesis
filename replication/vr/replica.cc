@@ -159,7 +159,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     int ret = -1;
     client_dst_mr = rdma_buffer_register(pd,
 		dst,
-		strlen(src),
+		sizeof(src),
 		(IBV_ACCESS_LOCAL_WRITE | 
 		 IBV_ACCESS_REMOTE_WRITE | 
 		 IBV_ACCESS_REMOTE_READ));
