@@ -632,8 +632,8 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         }
 
         nullCommitTimeout->Reset();
-	rdma_client_send();
         Latency_End(&requestLatency);
+	rdma_client_send();
 	process_work_completion_events(io_completion_channel, wc, 1);
     }
 }
