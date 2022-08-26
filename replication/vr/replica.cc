@@ -176,12 +176,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     memcpy(src+1, &config, sizeof(config));
     //copy myIdx
     memcpy(src+1+sizeof(config), &myIdx, sizeof(myIdx));
-    //copy initialize
-    memcpy(src+1+sizeof(config)+sizeof(myIdx), &initialize, sizeof(initialize));
-    //copy transport
-    memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize), transport, sizeof(*transport)); //dereference transport
-    //copy app
-    memcpy(src+1+sizeof(config)+sizeof(myIdx)+sizeof(initialize)+sizeof(*transport), app, sizeof(*app));//dereference app
+    //copy *transport
+    memcpy(src+1+sizeof(config)+sizeof(myIdx), transport, sizeof(*transport)); //dereference transport
     rdma_client_send();
     rdma_client_receive();
     process_work_completion_events(io_completion_channel, wc, 2);
