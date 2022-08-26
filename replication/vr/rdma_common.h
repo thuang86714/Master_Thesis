@@ -26,6 +26,8 @@
 #include <rdma/rdma_cma.h>
 #include <infiniband/verbs.h>
 
+namespace dsnet {
+namespace vr {
 /* Error Macro*/
 #define rdma_error(msg, args...) do {\
 	fprintf(stderr, "%s : %d : ERROR : "msg, __FILE__, __LINE__, ## args);\
@@ -131,3 +133,5 @@ int process_work_completion_events(struct ibv_comp_channel *comp_channel,
 void show_rdma_cmid(struct rdma_cm_id *id);
 
 #endif /* RDMA_COMMON_H */
+}
+}
