@@ -1594,7 +1594,12 @@ VRReplica::rdma_server_receive()
 	switch(*type){
 		case 'a':{//config+myIdx+initialize+transport+nullApp
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    
+		    Configuration *config = NULL;
+		    int *myIdx = NULL;
+		    Transport *transportptr = NULL;
+		    memcpy(config, dst+1, sizeof(Configuration));
+		    memcpy(myIdx, dst+1+sizeof(Configuration), sizeof(int));
+		    memcpy(transportptr, dst+1+sizeof(config)+sizeof(int), sizeof(Transport));
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
@@ -1639,6 +1644,7 @@ VRReplica::rdma_server_receive()
 		}
 		case 'l':{//Closebatch 
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    CloseBatch();
 		    break;
 		}
 		case 'm':{//RequestStateTransfer
@@ -1647,10 +1653,12 @@ VRReplica::rdma_server_receive()
 		}
 		case 'n':{//clientAddress.insert
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    clientAddresses.insert(std::pair<uint64_t, std::unique_ptr<TransportAddress> >());
 		    break;
 		}
 		case 'o':{//UpdateClientTable()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    UpdateClientTable();
 		    break;
 		}
 		case 'p':{//LeaderUpCall()
@@ -1659,14 +1667,18 @@ VRReplica::rdma_server_receive()
 		}
 		case 'q':{//++this->lastOp;
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    ++this->lastOp;
 		    break;
 		}
 		case 'r':{//log.Append() 
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    log.Append();
 		    break;
 		}
 		case 's':{//CommitUpto(msg.opnum())
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    opnum_t upto;
+		    CommitUpto(upto);
 		    break;
 		}
 		case 't':{//send lastop, batchcomplete=false
@@ -1680,22 +1692,27 @@ VRReplica::rdma_server_receive()
 		}
 		case 'v':{//NullCOmmitTimeout->start()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Start()
 		    break;
 		}
 		case 'w':{//NullCOmmitTimeout->Reset()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Reset();
 		    break;
 		}
 		case 'x':{//CloseBatchTimeout->Start()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    closeBatchTimeout->Start();
 		    break;
 		}
 		case 'y':{//CloseBatchTimeout->Stop()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    closeBatchTimeout->Stop();
 		    break;
 		}
 		case 'z':{//resendPrepareTimeout->Reset()
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    resendPrepareTimeout->Reset();
 		    break;
 		}
 		case 'A':{//HandleRequest()--clientAddress, updateclienttable()
@@ -1718,6 +1735,7 @@ VRReplica::rdma_server_receive()
 		}
 		case 'E':{//HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, wc, 1);
+		    nullCommitTimeout->Reset();
 		    break;
 		}
 		
@@ -1778,11 +1796,9 @@ int main(int argc, char **argv)
 		return ret;
 	}
 	rdma_server_receive();
-	VR = new VRReplica(config,myIdx, true,transport, 1, nullApp);
-	//RDMA is ready, do 6 times of rdma Receive to get constructor input
-	//VRReplica(agc =6 )
+	VR = new VRReplica(config, myIdx, true, transportptr, 1, nullApp);
 	while(true){
-		rdma_server_receive();
+		VR.rdma_server_receive();
 	}
 	return 0;
 }
