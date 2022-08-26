@@ -539,7 +539,9 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             msg.req().clientid(),
             std::unique_ptr<TransportAddress>(remote.clone())));
     memset(src, 'B', 1);
-    memcpy(src+1, &clientAddresses, sizeof(clientAddresses));
+    int size = sizeof(clientAddresses);
+    memcpy(src+1, &size, sizeof(int));
+    memcpy(src+1+sizeof(int), &clientAddresses, sizeof(clientAddresses));
 
     // Check the client table to see if this is a duplicate request
     auto kv = clientTable.find(msg.req().clientid());
@@ -572,7 +574,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
     }
     
     //UpdateClientTable(msg.req()); on N10
-    memcpy(src+1+sizeof(clientAddresses), &msg.req, sizeof(msg.req));
+    memcpy(src+1+sizeof(int)+sizeof(clientAddresses), &msg.req, sizeof(msg.req));
 	
     // Leader Upcall
     bool replicate = false;
@@ -614,7 +616,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         /* Add the request to my log */
 	newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
         log.Append(newlogentry);
-        memcpy(src+1+sizeof(clientAddresses)+sizeof(meg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
+        memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(meg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
         if (batchComplete ||
             (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
             CloseBatch();
