@@ -3,7 +3,7 @@ d := $(dir $(lastword $(MAKEFILE_LIST)))
 GTEST_SRCS += $(d)vr-test.cc
 
 $(d)vr-test: $(o)vr-test.o \
-	$(OBJS-vr-replica) $(OBJS-vr-client) \
+	$(OBJS-vr-replica) $(OBJS-vr-replica_OnHost) $(OBJS-vr-client) \
 	$(LIB-simtransport) \
 	$(GTEST_MAIN)
 
