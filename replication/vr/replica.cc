@@ -10,33 +10,38 @@
  */
 /*
 from client to server                                              from server to client
-'a' config+myIdx+initialize+transport+nullApp                      'a' ack
-'b' remote+Unlogged                                                'b' CloseBatch--PBMessage(lastPrepare)
+'a' config+myIdx+transport                                         'a' ack
+'b' remote+Unlogged_request                                        'b' CloseBatch--PBMessage(lastPrepare)
 'c' remote+Prepare                                                 'c' HandleUnlogged--ToClientMessage m
 'd' remote+Commit                                                  'd' HandlePrepare--ToClientMessage m
 'e' remote+RequestStateTransfer                                    'e' HandleStateTransfer--lastOp changed
 'f' remote+StateTransfer                                           'f' HandleStartViewChange--ToReplicaMessage m
-'g' remote+StartViewChange                                         'g' HandleDoViewChange--ToReplicaMessage m
-'h' remote+DoViewChange                                            'h' HandleStartView--lastOp changed
+'g' remote+StartViewChange                                         *'g' HandleDoViewChange--lastOp+ToReplicaMessage m
+'h' remote+DoViewChange                                            *'h' HandleStartView--lastOp changed+client_receive()
 'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
-'j' remote+Recovery                                                'j' HandleRecovery--lastOp changed
+'j' remote+Recovery                                                *'j' HandleRecoveryResponse--lastOp changed+client_receive()
 'k' remote+RecoveryResponse                                        'k' Latency_Start(&executeAndReplyLatency)
-'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)
-'m' RequestStateTransfer                                           'm' CommitUpto--transport
-'n' clientAddress.insert
-'o' UpdateClientTable()
-'p' LeaderUpCall()
-'q' ++this->lastOp;
-'r' log.Append()
-'s' CommitUpto(msg.opnum())
-'t' send lastop, batchcomplete=false,  resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)-still in while loop, CommitUpto--transport
+'m'                                                               *'m' Latency_End(&executeAndReplyLatency)--while loop end, CommitUpto--transport
+X'n'                                                               'n' Latency_End(&executeAndReplyLatency)-still in while loop, NO CommitUpto--transport
+X'o'                                                               *'o' Latency_End(&executeAndReplyLatency)--while loop end, NO CommitUpto--transport
+X'p'                                                                'p' 
+X'q'                                                                'q' sendPrepareOK->transport
+'r'                                                                 'r' 
+'s'                                                                's' RequestStateTransfer()->transport
+'t' send lastop, batchcomplete=false,                              't' EnterView->Amleader==true (view, stauts, lastBatched, batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
+resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete, nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), prepareOKQuorum.Clear();, client_receive()
 'u' 
-'v' NullCOmmitTimeout->start()
-'w' NullCOmmitTimeout->Reset()
-'x' CloseBatchTimeout->Start()
-'y' CloseBatchTimeout->Stop()
-'z' resendPrepareTimeout->Reset()
-'A' 
+'v' NullCOmmitTimeout->start()                                     'v' StartViewChange+view, status, nullCommitTimeout->Stop();resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
+'w'                                                                'w' StartViewChange, client_receive();
+'x'                                                               'x' UpdateClientTable->clienttable
+'y'                                                                'y' CloseBatch->transport
+'z'                                                                'z' HanldeRequestStateTransfer()->transport
+'A'                               
+'B' HandleRequest()--clientAddress, updateclienttable(), lastOp, new log entry, nullCommitTimeout->Reset();
+'C' HandleRequest()--clientAddress, updateclienttable(), lastOp, new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
+'D' HandlePrepareOk--RequestStateTransfer()
+'E' HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();, prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg)
 
 */
 //TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based, 
