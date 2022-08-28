@@ -176,6 +176,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
+    struct ibv_wc wc[2];
     memset(src, 0, sizeof(src));
     memset(src, 'a', 1);
     memcpy(src+1, &config, sizeof(config));
@@ -290,6 +291,7 @@ VRReplica::SendRecoveryMessages()
 void
 VRReplica::CloseBatch()
 {
+    struct ibv_wc wc[3];
     ASSERT(AmLeader);
     ASSERT(lastBatchEnd < lastOp);
 
@@ -428,7 +430,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //commit
 	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
 	    rdma_client_send();
-	    process_work_completion_events(io_completion_channel, wc, 1);
+	    //process_work_completion_events(io_completion_channel, wc, 1);
 	    rdma_client_receive();
             break;
 	}
@@ -522,6 +524,7 @@ void
 VRReplica::HandleRequest(const TransportAddress &remote,
                          const RequestMessage &msg)
 {
+    struct ibv_wc wc;
     viewstamp_t v;
     Latency_Start(&requestLatency);
 
@@ -631,7 +634,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
 		rdma_client_send();
 		nullCommitTimeout->Reset();
         	Latency_End(&requestLatency);
-		process_work_completion_events(io_completion_channel, wc, 1);
+		process_work_completion_events(io_completion_channel, &wc, 1);
 		return;
             }
         }
@@ -639,7 +642,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         nullCommitTimeout->Reset();
         Latency_End(&requestLatency);
 	rdma_client_send();
-	process_work_completion_events(io_completion_channel, wc, 1);
+	process_work_completion_events(io_completion_channel, &wc, 1);
     }
 }
 
@@ -648,7 +651,7 @@ void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
                            const PrepareOKMessage &msg)
 {
-
+    struct ibv_wc wc;
     RDebug("Received PREPAREOK <" FMT_VIEW ", "
            FMT_OPNUM  "> from replica %d",
            msg.view(), msg.opnum(), msg.replicaidx());
@@ -667,7 +670,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         //RequestStateTransfer();
 	memset(src, 'D', 1);
 	rdma_client_send();
-	process_work_completion_events(io_completion_channel, wc, 1);
+	process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
 
@@ -717,7 +720,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 
         nullCommitTimeout->Reset();
         rdma_client_send();
-	process_work_completion_events(io_completion_channel, wc, 1); 
+	process_work_completion_events(io_completion_channel, &wc, 1); 
         // XXX Adaptive batching -- make this configurable
         if (lastBatchEnd == msg.opnum()) {
             batchComplete = true;//batchcomplete seems to be not important to logic on N10, we dont send this bool for now
@@ -1006,7 +1009,7 @@ VRReplica::client_xchange_metadata_with_server()
 static int 
 VRReplica::rdma_client_send()
 {
-	struct ibv_wc wc;
+	//struct ibv_wc wc;
 	
 	/* Step 1: is to copy the local buffer into the remote buffer. We will 
 	 * reuse the previous variables. */
@@ -1049,7 +1052,7 @@ VRReplica::rdma_client_send()
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
 static int 
 VRReplica::rdma_client_receive()
-{
+{       struct ibv_wc wc[2];
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
 	/* Now we prepare a READ using same variables but for destination */
