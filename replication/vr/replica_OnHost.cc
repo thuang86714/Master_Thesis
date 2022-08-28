@@ -173,7 +173,9 @@ VRReplica::AmLeader() const
 
 void
 VRReplica::CommitUpTo(opnum_t upto)
-{   int timeleft = upto - lastCommitted;
+{   
+    struct ibv_wc wc;
+    int timeleft = upto - lastCommitted;
     while (timeleft > 0) {
         Latency_Start(&executeAndReplyLatency);
         memset(src, 'k', 1);
@@ -253,6 +255,7 @@ VRReplica::CommitUpTo(opnum_t upto)
 void
 VRReplica::SendPrepareOKs(opnum_t oldLastOp)
 {
+    struct ibv_wc wc;
     /* Send PREPAREOKs for new uncommitted operations */
     for (opnum_t i = oldLastOp; i <= lastOp; i++) {
         /* It has to be new *and* uncommitted */
@@ -291,6 +294,7 @@ VRReplica::SendPrepareOKs(opnum_t oldLastOp)
 void
 VRReplica::RequestStateTransfer()
 {
+    struct ibv_wc wc;
     ToReplicaMessage m;
     RequestStateTransferMessage *r = m.mutable_request_state_transfer();
     r->set_view(view);
@@ -325,6 +329,7 @@ VRReplica::RequestStateTransfer()
 void
 VRReplica::EnterView(view_t newview)
 {
+    struct ibv_wc wc;
     RNotice("Entering new view " FMT_VIEW, newview);
 
     view = newview;
@@ -360,6 +365,7 @@ VRReplica::EnterView(view_t newview)
 void
 VRReplica::StartViewChange(view_t newview)
 {
+    struct ibv_wc wc[2];
     RNotice("Starting view change for view " FMT_VIEW, newview);
 
     view = newview;
@@ -379,7 +385,7 @@ VRReplica::StartViewChange(view_t newview)
     memset(src, 'w', 1);
     memcpy(src+1, &m, sizeof(m));
     rdma_server_send();
-    process_work_completion_events(io_completion_channel, wc, 2);
+    process_work_completion_events(io_completion_channel, &wc, 2);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send StartViewChange message to all replicas");
@@ -391,6 +397,7 @@ VRReplica::StartViewChange(view_t newview)
 void
 VRReplica::UpdateClientTable(const Request &req)
 {
+    struct ibv_wc wc;
     ClientTableEntry &entry = clientTable[req.clientid()];
 
     ASSERT(entry.lastReqId <= req.clientreqid());
@@ -413,6 +420,7 @@ VRReplica::UpdateClientTable(const Request &req)
 void
 VRReplica::CloseBatch()
 {
+    struct ibv_wc wc;
     ASSERT(AmLeader());
     ASSERT(lastBatchEnd < lastOp);
 
@@ -456,6 +464,7 @@ void
 VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
                                  const UnloggedRequestMessage &msg)
 {
+    struct ibv_wc wc;
     if (status != STATUS_NORMAL) {
         // Not clear if we should ignore this or just let the request
         // go ahead, but this seems reasonable.
@@ -483,6 +492,7 @@ void
 VRReplica::HandlePrepare(const TransportAddress &remote,
                          const PrepareMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received PREPARE <" FMT_VIEW "," FMT_OPNUM "-" FMT_OPNUM ">",
            msg.view(), msg.batchstart(), msg.opnum());
 
@@ -582,6 +592,7 @@ void
 VRReplica::HandleCommit(const TransportAddress &remote,
                         const CommitMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received COMMIT " FMT_VIEWSTAMP, msg.view(), msg.opnum());
 
     if (this->status != STATUS_NORMAL) {
@@ -635,6 +646,7 @@ void
 VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
                                       const RequestStateTransferMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received REQUESTSTATETRANSFER " FMT_VIEWSTAMP,
            msg.view(), msg.opnum());
 
@@ -673,6 +685,7 @@ void
 VRReplica::HandleStateTransfer(const TransportAddress &remote,
                                const StateTransferMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received STATETRANSFER " FMT_VIEWSTAMP, msg.view(), msg.opnum());
 
     if (msg.view() < view) {
@@ -765,6 +778,7 @@ void
 VRReplica::HandleStartViewChange(const TransportAddress &remote,
                                  const StartViewChangeMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received STARTVIEWCHANGE " FMT_VIEW " from replica %d",
            msg.view(), msg.replicaidx());
 
@@ -836,6 +850,7 @@ void
 VRReplica::HandleDoViewChange(const TransportAddress &remote,
                               const DoViewChangeMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received DOVIEWCHANGE " FMT_VIEW " from replica %d, "
            "lastnormalview=" FMT_VIEW " op=" FMT_OPNUM " committed=" FMT_OPNUM,
            msg.view(), msg.replicaidx(),
@@ -970,6 +985,7 @@ void
 VRReplica::HandleStartView(const TransportAddress &remote,
                            const StartViewMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received STARTVIEW " FMT_VIEW
           " op=" FMT_OPNUM " committed=" FMT_OPNUM " entries=%d",
           msg.view(), msg.lastop(), msg.lastcommitted(), msg.entries_size());
@@ -1029,6 +1045,7 @@ void
 VRReplica::HandleRecovery(const TransportAddress &remote,
                           const RecoveryMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received RECOVERY from replica %d", msg.replicaidx());
 
     if (status != STATUS_NORMAL) {
@@ -1065,6 +1082,7 @@ void
 VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
                                   const RecoveryResponseMessage &msg)
 {
+    struct ibv_wc wc;
     RDebug("Received RECOVERYRESPONSE from replica %d",
            msg.replicaidx());
 
@@ -1563,6 +1581,7 @@ VRReplica::rdma_server_send()
 void
 VRReplica::rdma_server_receive()
 {
+	struct ibv_wc wc;
 	memset(dst,0, sizeof(dst));
 	memset(type, 0, sizeof(type));
 	/* Now we prepare a READ using same variables but for destination */
