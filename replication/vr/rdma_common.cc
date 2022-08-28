@@ -4,7 +4,8 @@
  * Authors: Animesh Trivedi
  *          atrivedi@apache.org 
  */
-
+namespace dsnet {
+namespace vr {
 #include "rdma_common.h"
 
 void show_rdma_cmid(struct rdma_cm_id *id)
@@ -207,3 +208,5 @@ int get_addr(char *dst, struct sockaddr *addr)
 	freeaddrinfo(res);
 	return ret;
 }
+}//namespace vr
+}//namespace dsnet
