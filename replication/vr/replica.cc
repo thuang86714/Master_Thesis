@@ -96,6 +96,20 @@ using namespace proto;
     this->lastCommitted = 0;
     this->lastRequestStateTransferView = 0;
     this->lastRequestStateTransferOpnum = 0;
+    
+//for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
+VRReplica::VRReplica(Configuration config, int myIdx,
+                     bool initialize,
+                     Transport *transport, int batchSize,
+                     AppReplica *app)
+    : Replica(config, 0, myIdx, initialize, transport, app),
+      batchSize(batchSize),
+      log(false),
+      prepareOKQuorum(config.QuorumSize()-1),
+      startViewChangeQuorum(config.QuorumSize()-1),
+      doViewChangeQuorum(config.QuorumSize()-1),
+      recoveryResponseQuorum(config.QuorumSize())
+{
     lastBatchEnd = 0;
     batchComplete = true;
     Amleader = true; //hard-coded bool of Amleader() function, use RDMA to chage value;
@@ -115,19 +129,6 @@ using namespace proto;
     src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
     dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
     type = (char *)calloc(sizeof(char),1);
-//for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
-VRReplica::VRReplica(Configuration config, int myIdx,
-                     bool initialize,
-                     Transport *transport, int batchSize,
-                     AppReplica *app)
-    : Replica(config, 0, myIdx, initialize, transport, app),
-      batchSize(batchSize),
-      log(false),
-      prepareOKQuorum(config.QuorumSize()-1),
-      startViewChangeQuorum(config.QuorumSize()-1),
-      doViewChangeQuorum(config.QuorumSize()-1),
-      recoveryResponseQuorum(config.QuorumSize())
-{
     //BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
     /* These are the RDMA resources needed to setup an RDMA connection */
     /* Event channel, where connection management (cm) related events are relayed */
