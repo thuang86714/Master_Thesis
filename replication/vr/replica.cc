@@ -157,9 +157,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     client_dst_mr = rdma_buffer_register(pd,
 		dst,
 		sizeof(src),
-		(IBV_ACCESS_LOCAL_WRITE | 
-		 IBV_ACCESS_REMOTE_WRITE | 
-		 IBV_ACCESS_REMOTE_READ));
+		IBV_ACCESS_LOCAL_WRITE);
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
