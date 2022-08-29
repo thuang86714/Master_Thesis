@@ -90,12 +90,6 @@ using namespace proto;
     static struct ibv_sge client_send_sge, server_recv_sge;
     /* Source and Destination buffers, where RDMA operations source and sink */
     static char *src = NULL, *dst = NULL, *type = NULL;
-    this->status = STATUS_NORMAL;
-    this->view = 0;
-    this->lastOp = 0;
-    this->lastCommitted = 0;
-    this->lastRequestStateTransferView = 0;
-    this->lastRequestStateTransferOpnum = 0;
     
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 VRReplica::VRReplica(Configuration config, int myIdx,
