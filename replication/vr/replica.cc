@@ -724,15 +724,15 @@ VRReplica::rdma_client_send()
 	}
 	debug("Client side SEND is complete \n");
 	*/
-	memset(src, 0, sizeof(src));
+	memset(src, 0, sizeof(*src));
 }
 
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
 void 
 VRReplica::rdma_client_receive()
 {       
-	memset(dst,0, sizeof(dst));
-	memset(type, 0, sizeof(type));
+	memset(dst,0, sizeof(*dst));
+	memset(type, 0, sizeof(*type));
 	/* Now we prepare a READ using same variables but for destination */
 	server_recv_sge.addr = (uint64_t) client_dst_mr->addr;
 	server_recv_sge.length = (uint32_t) client_dst_mr->length;
@@ -954,7 +954,7 @@ VRReplica::rdma_client_receive()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int sizeofclientTable;
 		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
-		    memcpy(&clientTable, &dst+1+sizeof(int), sizeofclientTable);
+		    memcpy(&clientTable, &dst+1+sizeof(int), sizeof(clientTable));
 		}break;
 			
 		case 'y': {//CloseBatch->transport
