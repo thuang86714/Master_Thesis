@@ -31,6 +31,7 @@ static int send_server_metadata_to_client();
  * rdma_disconnect() and then it will clean up its resources */
 static int disconnect_and_cleanup();
 
+void usage();
   
 }
 }
