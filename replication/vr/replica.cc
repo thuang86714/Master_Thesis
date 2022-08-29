@@ -357,12 +357,10 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:{
             HandleRequest(remote, replica_msg.request());
-            break;
-	}
+	}break;
 	case ToReplicaMessage::MsgCase::kPrepareOk:{
             HandlePrepareOK(remote, replica_msg.prepare_ok());
-	    break;
-	}
+	}break;
 	//all cases below should be executed on the Host
         case ToReplicaMessage::MsgCase::kUnloggedRequest:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
@@ -373,8 +371,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-        }
+        }break;
         case ToReplicaMessage::MsgCase::kPrepare:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandlePrepare(remote, replica_msg.prepare());
@@ -385,8 +382,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    rdma_client_send();
 	    rdma_client_receive();
-	    break;
-        }
+	}break;
         case ToReplicaMessage::MsgCase::kCommit:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleCommit(remote, replica_msg.commit());
@@ -398,8 +394,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    rdma_client_send();
 	    //process_work_completion_events(io_completion_channel, wc, 1);
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
@@ -410,8 +405,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}	    //all lines below have not been scrutinized
+        }break;	    //all lines below have not been scrutinized
         case ToReplicaMessage::MsgCase::kStateTransfer:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStateTransfer(remote, replica_msg.state_transfer());
@@ -422,8 +416,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kStartViewChange:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStartViewChange(remote, replica_msg.start_view_change());
@@ -433,8 +426,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kDoViewChange:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleDoViewChange(remote, replica_msg.do_view_change());
@@ -444,8 +436,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kStartView:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartView(remote, replica_msg.start_view());
@@ -455,8 +446,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kRecovery:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecovery(remote, replica_msg.recovery());
@@ -466,8 +456,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1+sizeof(remote), &replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         case ToReplicaMessage::MsgCase::kRecoveryResponse:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecoveryResponse(remote, replica_msg.recovery_response());
@@ -477,8 +466,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memcpy(src+1, &replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    rdma_client_send();
 	    rdma_client_receive();
-            break;
-	}
+        }break;
         default:
             //the line below should not need further change
             RPanic("Received unexpected message type %u",replica_msg.msg_case());
@@ -765,8 +753,7 @@ VRReplica::rdma_client_receive()
 	switch(*type){
 		case 'a': {//ack; for situation that same function may have different returns
 		    process_work_completion_events(io_completion_channel, wc, 2);
-		    break;
-		}
+		}break;
 			
 		case 'b': { //CloseBatch--PBMessage(lastPrepare)
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -774,8 +761,7 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
         	    RWarning("Failed to send prepare message to all replicas");
    		    }
-		    break;
-		}
+		}break;
 			
 		case 'c': {//HandleUnlogged--ToClientMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -784,8 +770,7 @@ VRReplica::rdma_client_receive()
 	    	    //ExecuteUnlogged(msg.req(), *reply); not sure what it would do
 	            if (!(transport->SendMessage(this, remote, PBMessage(m))))
            	    Warning("Failed to send reply message");
-		    break;
-		}
+		}break;
 			
 		case 'd': {//HandlePrepare--ToClientMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -795,14 +780,12 @@ VRReplica::rdma_client_receive()
                     if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
                     RWarning("Failed to send PrepareOK message to leader");
 	            rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'e': {//handleStateTransfer--new lastOp
 		    process_work_completion_events(io_completion_channel, wc, 2);
 	    	    memcpy(&lastOp, dst+1, sizeof(lastOp));
-		    break;
-		}
+		}break;
 			
 		case 'f': {//HandleStartViewChange--ToReplicaMessage m;
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -812,8 +795,7 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToReplica(this, leader, PBMessage(m)))) {
                     RWarning("Failed to send DoViewChange message to leader of new view");
                     }
-		    break;
-		}
+		}break;
 			
 		case 'g': {//HandleDoViewChange--lastOp changed + ToReplicaMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -823,15 +805,13 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
             	    RWarning("Failed to send StartView message to all replicas");
         	    }
-		    break;
-		}
+		}break;
 			
 		case 'h': {//HandleStartView--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 	            rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'i': {//HandleRecovery--ToReplicaMessage m 
 		    process_work_completion_events(io_completion_channel, wc, 2);
@@ -840,23 +820,20 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessage(this, remote, PBMessage(m)))) {
                     RWarning("Failed to send recovery response");
                     }
-		    break;
-		}
+		}break;
 			
 		case 'j': {//HandleRecoveryResponse--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		//below are reserved for non-handle functions()
 		case 'k': {//CommitUpto--Latency_Start
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_Start(&executeAndReplyLatency);
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'l': {//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -868,19 +845,16 @@ VRReplica::rdma_client_receive()
 		    auto iter = clientAddresses.find(n);
 		    transport->SendMessage(this, *iter->second, PBMessage(m));
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 		
 		case 'n': {//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 		
 	        case 'p': {//Not Defined
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
+		}break;
 			
 		case 'q': {//sendPrepareOks->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -890,13 +864,11 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
                     RWarning("Failed to send PrepareOK message to leader");
                     }
-		    break;
-		}
+		}break;
 			
 		case 'r': {//Not defined
 		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
+		}break;
 			
 	        case 's': {//RequestStateTransfer()->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -905,8 +877,7 @@ VRReplica::rdma_client_receive()
 		    if (!transport->SendMessageToAll(this, PBMessage(m))) {
         	    RWarning("Failed to send RequestStateTransfer message to all replicas");
    		    }
-		    break;
-		}
+		}break;
 			
 		case 't': {//EnterView->Amleader==true (view, stauts, lastBatched, 
 			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
@@ -919,8 +890,7 @@ VRReplica::rdma_client_receive()
 		    batchComplete = true;
 		    prepareOKQuorum.Clear();
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'u': {//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
 			//nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), 
@@ -936,8 +906,7 @@ VRReplica::rdma_client_receive()
 		    batchComplete = true;
 		    prepareOKQuorum.Clear();
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'v': {//StartViewChange+view, status, nullCommitTimeout->Stop();
 			//resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
@@ -948,8 +917,7 @@ VRReplica::rdma_client_receive()
 		    status = STATUS_VIEW_CHANGE;
 		    memcpy(&view, dst+1, sizeof(view));
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'w': {//StartViewChange->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -959,16 +927,14 @@ VRReplica::rdma_client_receive()
        		    RWarning("Failed to send StartViewChange message to all replicas");
     		    }
 		    rdma_client_receive();
-		    break;
-		}
+		}break;
 			
 		case 'x': {//UpdateClientTable->clienttable
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    int sizeofclientTable;
 		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
 		    memcpy(clientTable, &dst+1+sizeof(int), sizeofclientTable);
-		    break;
-		}
+		}break;
 			
 		case 'y': {//CloseBatch->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -976,16 +942,14 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
         	    RWarning("Failed to send prepare message to all replicas");
                     }
-		    break;
-		}
+		}break;
 			
 		case 'z': {//HanldeRequestStateTransfer()->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToReplicaMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
 		    transport->SendMessage(this, remote, PBMessage(m));
-		    break;
-		}
+		 }break;
 	}
 	return 0;
 } 
