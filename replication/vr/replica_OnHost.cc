@@ -70,8 +70,20 @@ using namespace proto;
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
 //write a main, so during experiment, I will also run one process on Node10
-
-	
+	static struct rdma_event_channel *cm_event_channel = NULL;
+	static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
+	static struct ibv_pd *pd = NULL;
+	static struct ibv_comp_channel *io_completion_channel = NULL;
+	static struct ibv_cq *cq = NULL;
+	static struct ibv_qp_init_attr qp_init_attr;
+	static struct ibv_qp *client_qp = NULL;
+	/* RDMA memory resources */
+	static struct ibv_mr *client_metadata_mr = NULL, *server_metadata_mr = NULL, *server_src_mr = NULL, *server_dst_mr = NULL;
+	static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
+	static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
+	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
+	static struct ibv_sge client_recv_sge, server_send_sge;
+	static char *src = NULL, *dst = NULL, *type = NULL;
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
@@ -151,7 +163,7 @@ VRReplica::~VRReplica()
     for (auto &kv : pendingPrepares) {
         delete kv.first;
     }
-    disconnect_and_cleanup()
+    disconnect_and_cleanup();
 }
 
 uint64_t
@@ -415,19 +427,20 @@ VRReplica::UpdateClientTable(const Request &req)
     process_work_completion_events(io_completion_channel, &wc, 1);
 }
 
-void
-VRReplica::CloseBatch()
-{
-    struct ibv_wc wc;
-    ASSERT(AmLeader());
-    ASSERT(lastBatchEnd < lastOp);
+//void
+//VRReplica::CloseBatch()
+//{
+  //  struct ibv_wc wc;
+   // ASSERT(AmLeader());
+    //ASSERT(lastBatchEnd < lastOp);
 
     //opnum_t batchStart = lastBatchEnd+1;
 
-    RDebug("Sending batched prepare from " FMT_OPNUM
-           " to " FMT_OPNUM,
-           batchStart, lastOp);
+    //RDebug("Sending batched prepare from " FMT_OPNUM
+    //       " to " FMT_OPNUM,
+    //       batchStart, lastOp);
     // Send prepare messages 
+    /*
     PrepareMessage *p = lastPrepare.mutable_prepare();
     p->set_view(view);
     p->set_opnum(lastOp);
@@ -1166,14 +1179,10 @@ VRReplica::rdma_server_send()
 	//client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
 	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
 	/* Now we post it */
-	ret = ibv_post_send(client_qp, 
+	ibv_post_send(client_qp, 
 		       &server_send_wr /* Send request that we prepared before */, 
 		       &bad_server_send_wr);
-	if (ret) {
-		rdma_error("Failed to send client src buffer, errno: %d \n", 
-				-errno);
-		return -errno;
-	}
+	
 	memset(src, 0, sizeof(src));
 }
 	
@@ -1192,14 +1201,10 @@ VRReplica::rdma_server_receive()
 	client_recv_wr.sg_list = &client_recv_sge;
 	client_recv_wr.num_sge = 1;
 	/* Now we post it */
-	ret = ibv_post_rcv(client_qp, 
+	ibv_post_recv(client_qp, 
 		       &client_recv_wr,
 	       &bad_client_recv_wr);
-	if (ret) {
-		rdma_error("Failed to receive client dst buffer from the server, errno: %d \n", 
-				-errno);
-		return -errno;
-	}
+	
 	// at this point we are expecting 1 work completion for the write 
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
@@ -1356,13 +1361,13 @@ VRReplica::rdma_server_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    int size;
 		    Request req;
-		    LogEntry newlogentry;
+		    LogEntry* newlogentry;
 		    memcpy(&size, dst+1, sizeof(int));
 		    memcpy(&clientAddresses, dst+1+sizeof(int), size);
 		    memcpy(&req, dst+1+sizeof(int)+size, sizeof(Request));
 		    UpdateClientTable(req);
 	            memcpy(&lastOp, dst+1+sizeof(int)+size+sizeof(Request), sizeof(lastOp));
-		    memcpy(&newlogentry, dst+1+sizeof(int)+size+sizeof(Request)+sizeof(lastOp), sizeof(LogEntry));
+		    memcpy(newlogentry, dst+1+sizeof(int)+size+sizeof(Request)+sizeof(lastOp), sizeof(LogEntry));
 		    log.Append(newlogentry);
 		    break;
 		}
@@ -1406,20 +1411,6 @@ VRReplica::rdma_server_receive()
 //make main constantly listening on certain addr and port
 int main(int argc, char **argv) 
 {
-	static struct rdma_event_channel *cm_event_channel = NULL;
-	static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
-	static struct ibv_pd *pd = NULL;
-	static struct ibv_comp_channel *io_completion_channel = NULL;
-	static struct ibv_cq *cq = NULL;
-	static struct ibv_qp_init_attr qp_init_attr;
-	static struct ibv_qp *client_qp = NULL;
-	/* RDMA memory resources */
-	static struct ibv_mr *client_metadata_mr = NULL, *server_metadata_mr = NULL, *server_src_mr = NULL, *server_dst_mr = NULL;
-	static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
-	static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
-	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
-	static struct ibv_sge client_recv_sge, server_send_sge;
-	static char *src = NULL, *dst = NULL, *type = NULL;
 	int ret;
 	std::string transport_cmdline;
 	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
@@ -1432,35 +1423,35 @@ int main(int argc, char **argv)
         src = (char *)calloc(1073741824,1); 
         dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
         type = (char *)calloc(sizeof(char),1);
-	ret = get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
+	ret = dsnet::vr::get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
 	if (ret) {
 		rdma_error("Invalid IP \n");
 		return ret;
 	}
 	server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT); /* use default port */
-	ret = start_rdma_server(&server_sockaddr);
+	ret = dsnet::vr::start_rdma_server(&server_sockaddr);
 	if (ret) {
 		rdma_error("RDMA server failed to start cleanly, ret = %d \n", ret);
 		return ret;
 	}
-	ret = setup_client_resources();
+	ret = dsnet::vr::setup_client_resources();
 	if (ret) { 
 		rdma_error("Failed to setup client resources, ret = %d \n", ret);
 		return ret;
 	}
-	ret = accept_client_connection();
+	ret = dsnet::vr::accept_client_connection();
 	if (ret) {
 		rdma_error("Failed to handle client cleanly, ret = %d \n", ret);
 		return ret;
 	}
-	ret = send_server_metadata_to_client();
+	ret = dsnet::vr::send_server_metadata_to_client();
 	if (ret) {
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	rdma_server_receive();
+	dsnet::vr::rdma_server_receive();
 	transport = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-	VR = new VRReplica(config, myIdx, true, transport, 1, nullApp);
+	VR = new dsnet::vr::VRReplica(config, myIdx, true, transport, 1, nullApp);
 	while(true){
 		VR.rdma_server_receive();
 	}
