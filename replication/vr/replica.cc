@@ -120,7 +120,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //add a rdma write function (for registration propose) to RDMA server. 
     //bellow are for RDMA client
     // Hard-coded the destination address
-    char* RDMA_SERVER_ADDR = "10.1.0.4";
+    char* const RDMA_SERVER_ADDR = "10.1.0.4";
     struct sockaddr_in server_sockaddr;
     bzero(&server_sockaddr, sizeof server_sockaddr);
     server_sockaddr.sin_family = AF_INET;
