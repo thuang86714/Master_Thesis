@@ -30,7 +30,8 @@ static int client_connect_to_server();
  * this program is client driven. But it shown here how to do it for the illustration
  * purposes
  */
-static int 
-client_xchange_metadata_with_server();
+static int client_xchange_metadata_with_server();
+	
+static int client_disconnect_and_clean();
 }
 }
