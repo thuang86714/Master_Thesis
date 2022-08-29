@@ -62,6 +62,12 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 //the next two lib are for RDMA
 #include "rdma_common.h"
 #include "rdma_client.h"
+
+#define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RWarning(fmt, ...) Warning("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RPanic(fmt, ...) Panic("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+
 namespace dsnet {
 namespace vr {
 
