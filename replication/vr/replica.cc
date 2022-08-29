@@ -933,7 +933,7 @@ VRReplica::rdma_client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    int sizeofclientTable;
 		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
-		    memcpy(clientTable, &dst+1+sizeof(int), sizeofclientTable);
+		    memcpy(&clientTable, &dst+1+sizeof(int), sizeofclientTable);
 		}break;
 			
 		case 'y': {//CloseBatch->transport
@@ -955,8 +955,6 @@ VRReplica::rdma_client_receive()
 } 
 
 		  
-/* This function disconnects the RDMA connection from the server and cleans up 
- * all the resources.
- */
+
 }
 }
