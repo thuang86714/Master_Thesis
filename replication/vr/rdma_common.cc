@@ -208,5 +208,6 @@ int get_addr(char *dst, struct sockaddr *addr)
 	freeaddrinfo(res);
 	return ret;
 }
+	
 }//namespace vr
 }//namespace dsnet
