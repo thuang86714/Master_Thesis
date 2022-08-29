@@ -584,7 +584,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
 
         /* Assign it an opnum */
         ++this->lastOp;
-	memcpy(src+1+sizeof(clientAddresses)+sizeof(meg.req), &lastOp, sizeof(lastOp));
+	memcpy(src+1+sizeof(clientAddresses)+sizeof(msg.req), &lastOp, sizeof(lastOp));
         v.view = this->view;
         v.opnum = this->lastOp;
 
@@ -727,14 +727,9 @@ VRReplica::rdma_client_send()
 	//client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
 	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
 	/* Now we post it */
-	ret = ibv_post_send(client_qp, 
+	ibv_post_send(client_qp, 
 		       &client_send_wr,
 	       &bad_client_send_wr);
-	if (ret) {
-		rdma_error("Failed to send client src buffer, errno: %d \n", 
-				-errno);
-		return -errno;
-	}
 	/* at this point we are expecting 1 work completion for the write */
 	/*
 	ret = process_work_completion_events(io_completion_channel, 
@@ -764,14 +759,9 @@ VRReplica::rdma_client_receive()
 	server_recv_wr.sg_list = &server_recv_sge;
 	server_recv_wr.num_sge = 1;
 	/* Now we post it */
-	ret = ibv_post_recv(client_qp, 
+	ibv_post_recv(client_qp, 
 		       &server_recv_wr,
 	       &bad_server_recv_wr);
-	if (ret) {
-		rdma_error("Failed to receive client dst buffer from the server, errno: %d \n", 
-				-errno);
-		return -errno;
-	}
 	// at this point we are expecting 1 work completion for the write 
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
