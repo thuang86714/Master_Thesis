@@ -536,7 +536,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
     }
     
     //UpdateClientTable(msg.req()); on N10
-    memcpy(src+1+sizeof(int)+sizeof(clientAddresses), &msg.req, sizeof(msg.req));
+    memcpy(src+1+sizeof(int)+sizeof(clientAddresses), &msg.req(), sizeof(msg.req()));
 	
     // Leader Upcall
     bool replicate = false;
@@ -567,7 +567,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
 
         /* Assign it an opnum */
         ++this->lastOp;
-	memcpy(src+1+sizeof(clientAddresses)+sizeof(msg.req), &lastOp, sizeof(lastOp));
+	memcpy(src+1+sizeof(clientAddresses)+sizeof(msg.req()), &lastOp, sizeof(lastOp));
         v.view = this->view;
         v.opnum = this->lastOp;
 
@@ -576,7 +576,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         /* Add the request to my log */
 	newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
         log.Append(newlogentry);
-        memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(msg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
+        memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(msg.req())+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
         if (batchComplete ||
             (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
             CloseBatch();
