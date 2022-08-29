@@ -14,6 +14,8 @@ OBJS-vr-replica := $(o)replica.o $(o)vr-proto.o $(o)rdma_common.o $(o)rdma_clien
                    $(OBJS-replica) $(LIB-message) \
                    $(LIB-configuration) $(LIB-latency) $(LIB-pbmessage)
 
-OBJS-vr-replicaOnHost := $(o)replica_OnHost.o $(o)vr-proto.o $(o)rdma_common.o $(o)rdma_server.o\
-                   $(OBJS-replica) $(LIB-message) \
-                   $(LIB-configuration) $(LIB-latency) $(LIB-pbmessage)
+$(d)vr-replicaOnHost: $(o)replica_OnHost.o $(o)vr-proto.o $(o)rdma_common.o $(o)rdma_server.o
+$(d)vr-replicaOnHost:	$(OBJS-replica) $(LIB-message)
+$(d)vr-replicaOnHost: $(LIB-configuration) $(LIB-latency) $(LIB-pbmessage)
+
+BINS += $(d)vr-replicaOnHost
