@@ -329,7 +329,7 @@ VRReplica::SendNullCommit()
     c->set_view(this->view);
     c->set_opnum(this->lastCommitted);
 
-    ASSERT(Amleader());
+    ASSERT(Amleader);
 
     if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
         RWarning("Failed to send null COMMIT message to all replicas");
