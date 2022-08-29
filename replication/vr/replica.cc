@@ -742,15 +742,14 @@ VRReplica::rdma_client_receive()
 	server_recv_wr.sg_list = &server_recv_sge;
 	server_recv_wr.num_sge = 1;
 	/* Now we post it */
-	ibv_post_recv(client_qp, 
-		       &server_recv_wr,
-	       &bad_server_recv_wr);
+	ibv_post_recv(client_qp, &server_recv_wr,&bad_server_recv_wr);
 	// at this point we are expecting 1 work completion for the write 
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
 	
 	memcpy(type, dst, 1);
-	switch(*type){
+	switch(*type)
+	{
 		case 'a': {//ack; for situation that same function may have different returns
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		}break;
@@ -951,7 +950,7 @@ VRReplica::rdma_client_receive()
 		    transport->SendMessage(this, remote, PBMessage(m));
 		 }break;
 	}
-	return 0;
+	
 } 
 
 		  
