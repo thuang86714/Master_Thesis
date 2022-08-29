@@ -18,20 +18,20 @@ namespace vr {
 static int check_src_dst();
 
 /* This function prepares client side connection resources for an RDMA connection */
-static int client_prepare_connection(struct sockaddr_in *s_addr);
+int client_prepare_connection(struct sockaddr_in *s_addr);
 		  
-static int client_pre_post_recv_buffer();
+int client_pre_post_recv_buffer();
 
 /* Connects to the RDMA server */
-static int client_connect_to_server();
+int client_connect_to_server();
 
 /* Exchange buffer metadata with the server. The client sends its, and then receives
  * from the server. The client-side metadata on the server is _not_ used because
  * this program is client driven. But it shown here how to do it for the illustration
  * purposes
  */
-static int client_xchange_metadata_with_server();
+int client_xchange_metadata_with_server();
 	
-static int client_disconnect_and_clean();
+int client_disconnect_and_clean();
 }
 }
