@@ -478,6 +478,7 @@ VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
     ExecuteUnlogged(msg.req(), *reply);
     memset(src, 'c', 1);
     memcpy(src+1, &m, sizeof(m));
+    memcpy(src+1+sizeof(m), &remote, sizeof(remote));
     rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
@@ -1066,6 +1067,7 @@ VRReplica::HandleRecovery(const TransportAddress &remote,
     }
     memset(src, 'i', 1);
     memcpy(src+1, &m, sizeof(m));
+    memcpy(src+1+sizeof(m), &remote, sizeof(remote));
     rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
