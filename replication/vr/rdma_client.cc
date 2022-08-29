@@ -38,7 +38,7 @@ static int check_src_dst()
 }
 
 /* This function prepares client side connection resources for an RDMA connection */
-static int 
+int 
 client_prepare_connection(struct sockaddr_in *s_addr)
 {
 	struct rdma_cm_event *cm_event = NULL;
@@ -177,7 +177,7 @@ client_prepare_connection(struct sockaddr_in *s_addr)
 	return 0;
 }				  
 		  
-static int 
+int 
 client_pre_post_recv_buffer()
 {
 	int ret = -1;
@@ -208,7 +208,7 @@ client_pre_post_recv_buffer()
 }
 		  
 /* Connects to the RDMA server */
-static int 
+int 
 client_connect_to_server() 
 {
 	struct rdma_conn_param conn_param;
@@ -246,7 +246,7 @@ client_connect_to_server()
  * this program is client driven. But it shown here how to do it for the illustration
  * purposes
  */
-static int 
+int 
 client_xchange_metadata_with_server()
 {
 	struct ibv_wc wc[2];
@@ -308,7 +308,7 @@ client_xchange_metadata_with_server()
 	return 0;
 }
 
-static int 
+int 
 client_disconnect_and_clean()
 {
 	struct rdma_cm_event *cm_event = NULL;
