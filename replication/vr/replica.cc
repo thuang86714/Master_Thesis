@@ -271,7 +271,7 @@ void
 VRReplica::CloseBatch()
 {
     struct ibv_wc wc[3];
-    ASSERT(AmLeader);
+    ASSERT(Amleader);
     ASSERT(lastBatchEnd < lastOp);
 
     opnum_t batchStart = lastBatchEnd+1;
@@ -323,7 +323,7 @@ VRReplica::SendNullCommit()
     c->set_view(this->view);
     c->set_opnum(this->lastCommitted);
 
-    ASSERT(AmLeader());
+    ASSERT(Amleader());
 
     if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
         RWarning("Failed to send null COMMIT message to all replicas");
@@ -333,7 +333,7 @@ VRReplica::SendNullCommit()
 void
 VRReplica::ResendPrepare()
 {
-    ASSERT(AmLeader);
+    ASSERT(Amleader);
     if (lastOp == lastCommitted) {
         return;
     }
@@ -499,7 +499,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         return;
     }
 
-    if (!AmLeader) {
+    if (!Amleader) {
         RDebug("Ignoring request because I'm not the leader");
         Latency_EndType(&requestLatency, 'i');
         return;
@@ -639,7 +639,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
         return;
     }
 
-    if (!AmLeader) {
+    if (!Amleader) {
         RWarning("Ignoring PREPAREOK because I'm not the leader");
         return;
     }
