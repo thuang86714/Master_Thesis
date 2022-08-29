@@ -131,7 +131,6 @@ int process_work_completion_events(struct ibv_comp_channel *comp_channel,
 
 /* prints some details from the cm id */
 void show_rdma_cmid(struct rdma_cm_id *id);
-
+} //dsnet::vr
+} //dsnet
 #endif /* RDMA_COMMON_H */
-}
-}
