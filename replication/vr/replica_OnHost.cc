@@ -1417,7 +1417,7 @@ int main(int argc, char **argv)
 	static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
 	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
 	static struct ibv_sge client_recv_sge, server_send_sge;
-	static char *src = NULL, *dst = NULL; *type = NULL;
+	static char *src = NULL, *dst = NULL, *type = NULL;
 	int ret;
 	std::string transport_cmdline;
 	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
@@ -1425,8 +1425,8 @@ int main(int argc, char **argv)
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
-	char* RDMA_CLIENT_ADDR = "10.1.0.7";
-	src = dst = NULL;
+	char* const RDMA_CLIENT_ADDR = "10.1.0.7";
+	src = dst = type = NULL;
         src = (char *)calloc(1073741824,1); 
         dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
         type = (char *)calloc(sizeof(char),1);
