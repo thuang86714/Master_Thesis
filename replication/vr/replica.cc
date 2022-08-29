@@ -196,7 +196,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 
     if (initialize) { //initialize == true
-        if (AmLeader) {
+        if (Amleader) {
             nullCommitTimeout->Start();
 	    memset(src, 'v', 1);
 	    rdma_client_send();//no need for ack from client side
