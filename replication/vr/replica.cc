@@ -777,10 +777,9 @@ VRReplica::rdma_client_receive()
 		case 'd': {//HandlePrepare--ToClientMessage m
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
-	            int leader = (view % 3); //hard-coded n=3
 	            ToReplicaMessage m;
                     memcpy(&m, dst+1, sizeof(m));
-                    if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
+                    if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(m)))) {
                     RWarning("Failed to send PrepareOK message to leader");
 		}rdma_client_receive();
 		break;
@@ -794,10 +793,9 @@ VRReplica::rdma_client_receive()
 		case 'f': {//HandleStartViewChange--ToReplicaMessage m;
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
-		    int leader = (view % 3); //hard-coded n=3
 		    ToReplicaMessage m;
                     memcpy(&m, dst+1, sizeof(m));
-		    if (!(transport->SendMessageToReplica(this, leader, PBMessage(m)))) {
+		    if (!(transport->SendMessageToReplica(this, (view % 3), PBMessage(m)))) {
                     RWarning("Failed to send DoViewChange message to leader of new view");
                     }
 		}break;
@@ -873,9 +871,8 @@ VRReplica::rdma_client_receive()
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    ToReplicaMessage m;
-		    int leader = (view % 3);
 		    memcpy(&m, dst+1, sizeof(m));
-		    if (!(transport->SendMessageToReplica(this,leader,PBMessage(m)))) {
+		    if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(m)))) {
                     RWarning("Failed to send PrepareOK message to leader");
                     }
 		}break;
