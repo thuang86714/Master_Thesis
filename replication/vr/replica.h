@@ -107,7 +107,10 @@ private:
     void UpdateClientTable(const Request &req);
     void ResendPrepare();
     void CloseBatch();
-
+    void rdma_client_send();
+    void rdma_client_receive();
+    void rdma_server_send();
+    void rdma_server_receive();
     void HandleRequest(const TransportAddress &remote,
                        const proto::RequestMessage &msg);
     void HandleUnloggedRequest(const TransportAddress &remote,
