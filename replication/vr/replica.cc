@@ -310,23 +310,9 @@ VRReplica::CloseBatch()
     resendPrepareTimeout->Reset();
     closeBatchTimeout->Stop();
     memset(src, 't', 1);
-    memcpy(sr+1, &lastOp, sizeof(lastOp));
+    memcpy(src+1, &lastOp, sizeof(lastOp));
     rdma_client_send();
     process_work_completion_events(io_completion_channel, wc, 3); //an ack to gurantee receive
-}
-  
-void
-VRReplica::SendRecoveryMessages()
-{
-    ToReplicaMessage m;
-    RecoveryMessage *recovery = m.mutable_recovery();
-    recovery->set_replicaidx(this->replicaIdx);
-    recovery->set_nonce(recoveryNonce);
-
-    RNotice("Requesting recovery");
-    if (!transport->SendMessageToAll(this, PBMessage(m))) {
-        RWarning("Failed to send Recovery message to all replicas");
-    }
 }
 	
 void
@@ -714,7 +700,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 //I will divide the function into 2 separate function, RDMA Write & RDMA Read
 //Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation. 
 //But according to Page 106, Mellanox Verbs Programming Tutorial (by Dotan Barak) , atomic operation is performance killer
-static int 
+void 
 VRReplica::rdma_client_send()
 {
 	//struct ibv_wc wc;
@@ -758,7 +744,7 @@ VRReplica::rdma_client_send()
 }
 
 //this function is RDMA read: this function could only do Memory Region Level Read, can not do 
-static int 
+void 
 VRReplica::rdma_client_receive()
 {       struct ibv_wc wc[2];
 	memset(dst,0, sizeof(dst));
