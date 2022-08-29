@@ -110,6 +110,12 @@ VRReplica::VRReplica(Configuration config, int myIdx,
       doViewChangeQuorum(config.QuorumSize()-1),
       recoveryResponseQuorum(config.QuorumSize())
 {
+    this->status = STATUS_NORMAL;
+    this->view = 0;
+    this->lastOp = 0;
+    this->lastCommitted = 0;
+    this->lastRequestStateTransferView = 0;
+    this->lastRequestStateTransferOpnum = 0;
     lastBatchEnd = 0;
     batchComplete = true;
     Amleader = true; //hard-coded bool of Amleader() function, use RDMA to chage value;
