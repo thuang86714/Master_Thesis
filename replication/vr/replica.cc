@@ -978,6 +978,6 @@ VRReplica::rdma_client_receive()
 } 
 
 		  
-
+}
 }
 }
