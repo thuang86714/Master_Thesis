@@ -375,7 +375,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    //send remote
 	    memset(src, 'b', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
-	    memcpy(src+1+sizeof(remote), replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -387,7 +387,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'c', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //prepare
-	    memcpy(src+1+sizeof(remote), replica_msg.prepare(), sizeof(replica_msg.prepare()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    rdma_client_send();
 	    rdma_client_receive();
 	    break;
@@ -399,7 +399,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'd', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //commit
-	    memcpy(src+1+sizeof(remote), replica_msg.commit(), sizeof(replica_msg.commit()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.commit(), sizeof(replica_msg.commit()));
 	    rdma_client_send();
 	    //process_work_completion_events(io_completion_channel, wc, 1);
 	    rdma_client_receive();
@@ -412,7 +412,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'e', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //req state transfer
-	    memcpy(src+1+sizeof(remote), replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -424,7 +424,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'f', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //state transfer
-	    memcpy(src+1+sizeof(remote), replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -435,7 +435,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'g', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //start view change
-	    memcpy(src+1+sizeof(remote), replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -446,7 +446,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'h', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //do view change
-	    memcpy(src+1+sizeof(remote), replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -457,7 +457,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'i', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //Start view
-	    memcpy(src+1+sizeof(remote), replica_msg.start_view(), sizeof(replica_msg.start_view()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -468,7 +468,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'j', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //recovery
-	    memcpy(src+1+sizeof(remote), replica_msg.recovery(), sizeof(replica_msg.recovery()));
+	    memcpy(src+1+sizeof(remote), &replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
@@ -479,7 +479,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    memset(src, 'k', 1);
 	    memcpy(src+1, &remote, sizeof(remote));
 	    //recovery response
-	    memcpy(src+1, replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
+	    memcpy(src+1, &replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    rdma_client_send();
 	    rdma_client_receive();
             break;
