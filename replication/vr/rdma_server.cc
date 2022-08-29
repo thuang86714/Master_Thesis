@@ -1,8 +1,23 @@
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <getopt.h>
+
+#include <netdb.h>
+#include <netinet/in.h>	
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
+#include <rdma/rdma_cma.h>
+#include <infiniband/verbs.h>
 #include "rdma_common.h"
 #include "rdma_server.h"
-namespace dsnet{
-namespace vr{
+namespace dsnet {
+namespace vr {
+	
 static int 
 setup_client_resources()
 {
@@ -99,7 +114,7 @@ setup_client_resources()
 
 /* Starts an RDMA server by allocating basic connection resources */
 static int 
-VRReplica::start_rdma_server(struct sockaddr_in *server_addr) 
+start_rdma_server(struct sockaddr_in *server_addr) 
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -173,7 +188,7 @@ VRReplica::start_rdma_server(struct sockaddr_in *server_addr)
 
 /* Pre-posts a receive buffer and accepts an RDMA client connection */
 static int 
-VRReplica::accept_client_connection()
+accept_client_connection()
 {
 	struct rdma_conn_param conn_param;
 	struct rdma_cm_event *cm_event = NULL;
@@ -251,7 +266,7 @@ VRReplica::accept_client_connection()
 
 /* This function sends server side buffer metadata to the connected client */
 static int 
-VRReplica::send_server_metadata_to_client() 
+send_server_metadata_to_client() 
 {
 	struct ibv_wc wc;
 	int ret = -1;
@@ -341,7 +356,7 @@ VRReplica::send_server_metadata_to_client()
 /* This is server side logic. Server passively waits for the client to call 
  * rdma_disconnect() and then it will clean up its resources */
 static int 
-VRReplica::disconnect_and_cleanup()
+disconnect_and_cleanup()
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -403,5 +418,6 @@ VRReplica::disconnect_and_cleanup()
 	printf("Server shut-down is complete \n");
 	return 0;
 }
+					     
 }
 }
