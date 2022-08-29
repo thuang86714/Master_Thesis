@@ -32,6 +32,25 @@ static char *src = NULL, *dst = NULL;
 /* This is our testing function */
 namespace dsnet {
 namespace vr {
+    static struct rdma_event_channel *cm_event_channel = NULL;
+    static struct rdma_cm_id *cm_client_id = NULL;
+    static struct ibv_pd *pd = NULL;
+    static struct ibv_comp_channel *io_completion_channel = NULL;
+    static struct ibv_cq *client_cq = NULL;
+    static struct ibv_qp_init_attr qp_init_attr;
+    static struct ibv_qp *client_qp;
+    /* These are memory buffers related resources */
+    static struct ibv_mr *client_metadata_mr = NULL, 
+		         *client_src_mr = NULL, 
+		         *client_dst_mr = NULL, 
+		         *server_metadata_mr = NULL;
+    static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
+    static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
+    static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
+    static struct ibv_sge client_send_sge, server_recv_sge;
+    /* Source and Destination buffers, where RDMA operations source and sink */
+    static char *src = NULL, *dst = NULL, *type = NULL;
+	
 static int check_src_dst() 
 {
 	return memcmp((void*) src, (void*) dst, strlen(src));
