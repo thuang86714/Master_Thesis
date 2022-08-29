@@ -61,7 +61,7 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include <stdio.h>
 //the next two lib are for RDMA
 #include "rdma_common.h"
-
+#include "rdma_client.h"
 namespace dsnet {
 namespace vr {
 
@@ -101,7 +101,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
     static struct ibv_sge client_send_sge, server_recv_sge;
     /* Source and Destination buffers, where RDMA operations source and sink */
-    static char *src = NULL, *dst = NULL; *type = NULL;
+    static char *src = NULL, *dst = NULL, *type = NULL;
     this->status = STATUS_NORMAL;
     this->view = 0;
     this->lastOp = 0;
@@ -117,7 +117,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //add a rdma write function (for registration propose) to RDMA server. 
     //bellow are for RDMA client
     // Hard-coded the destination address
-    const char* RDMA_SERVER_ADDR = "10.1.0.4";
+    char* RDMA_SERVER_ADDR = "10.1.0.4";
     struct sockaddr_in server_sockaddr;
     int ret;
     bzero(&server_sockaddr, sizeof server_sockaddr);
