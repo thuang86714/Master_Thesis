@@ -117,7 +117,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //add a rdma write function (for registration propose) to RDMA server. 
     //bellow are for RDMA client
     // Hard-coded the destination address
-    const char RDMA_SERVER_ADDR = 10.1.0.4;
+    const char* RDMA_SERVER_ADDR = "10.1.0.4";
     struct sockaddr_in server_sockaddr;
     int ret;
     bzero(&server_sockaddr, sizeof server_sockaddr);
