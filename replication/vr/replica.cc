@@ -282,7 +282,7 @@ VRReplica::CloseBatch()
 
     opnum_t batchStart = lastBatchEnd+1;
     memset(src, 'l', 1); //lowercase L for CloseBatch()
-    memcpy(src+1, &batchstart, sizeof(batchstart));
+    memcpy(src+1, &batchStart, sizeof(batchStart));
     rdma_client_send();
     //need a client_receive() for case 'b' for CloseBatch--PBMessage(lastPrepare) from server;
     rdma_client_receive();//client_receive() case 'b'
