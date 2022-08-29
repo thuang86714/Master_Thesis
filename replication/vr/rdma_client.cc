@@ -30,6 +30,8 @@ static char *src = NULL, *dst = NULL;
 */
 
 /* This is our testing function */
+namespace dsnet {
+namespace vr {
 static int check_src_dst() 
 {
 	return memcmp((void*) src, (void*) dst, strlen(src));
@@ -304,6 +306,9 @@ client_xchange_metadata_with_server()
 	debug("Server sent us its buffer location and credentials, showing \n");
 	show_rdma_buffer_attr(&server_metadata_attr);
 	return 0;
+}
+	
+}
 }
 
 //orignially this function include 1st RDMA Write from client to server + 2nd RDMA Read from client to server (execute as ordered)
