@@ -53,7 +53,7 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include "lib/message.h"
 #include "lib/transport.h"
 #include "common/pbmessage.h"
-
+#include "lib/dpdktransport.h"
 #include <algorithm>
 #include <random>
 #include "rdma_common.h"
@@ -1159,7 +1159,7 @@ VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
 //Below are for RDMA server
 	
 void
-VRReplica::rdma_server_send()
+rdma_server_send()
 {
 	struct ibv_wc wc;
 	
@@ -1187,7 +1187,7 @@ VRReplica::rdma_server_send()
 }
 	
 void
-VRReplica::rdma_server_receive()
+rdma_server_receive()
 {
 	struct ibv_wc wc;
 	memset(dst,0, sizeof(dst));
@@ -1215,11 +1215,12 @@ VRReplica::rdma_server_receive()
 	switch(*type){
 		case 'a':{//config+myIdx+initialize+transport+nullApp
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    Configuration *config = NULL;
+		    dsnet::Configuration *config = NULL;
 		    int *myIdx = NULL;
-		    Transport *transportptr = NULL;
-		    memcpy(config, dst+1, sizeof(Configuration));
-		    memcpy(myIdx, dst+1+sizeof(Configuration), sizeof(int));
+		    std::string transport_cmdline;
+		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
+		    memcpy(config, dst+1, sizeof(*config));
+		    memcpy(myIdx, dst+1+sizeof(*config), sizeof(int));
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
@@ -1450,8 +1451,8 @@ int main(int argc, char **argv)
 		return ret;
 	}
 	dsnet::vr::rdma_server_receive();
-	transport = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-	VR = new dsnet::vr::VRReplica(config, myIdx, true, transport, 1, nullApp);
+	
+	VR = new dsnet::vr::VRReplica(config, myIdx, true, transportptr, 1, nullApp);
 	while(true){
 		VR.rdma_server_receive();
 	}
