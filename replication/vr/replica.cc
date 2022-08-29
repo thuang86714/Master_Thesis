@@ -78,7 +78,7 @@ using namespace proto;
     static struct ibv_qp *client_qp;
     /* These are memory buffers related resources */
     static struct ibv_mr *client_src_mr = NULL, 
-		         *client_dst_mr = NULL, 
+		         *client_dst_mr = NULL;
 		         
     static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
     static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
@@ -823,7 +823,7 @@ VRReplica::rdma_client_receive()
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    memcpy(&remote, dst+1+sizeof(replica_mag), sizeof(TransportAddress));
+		    memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
 		    if (!(transport->SendMessage(this, remote, PBMessage(replica_msg)))) {
                     RWarning("Failed to send recovery response");
                     }
