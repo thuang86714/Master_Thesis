@@ -18,7 +18,7 @@
 namespace dsnet {
 namespace vr {
 	
-static int 
+int 
 setup_client_resources()
 {
 	int ret = -1;
@@ -113,7 +113,7 @@ setup_client_resources()
 }
 
 /* Starts an RDMA server by allocating basic connection resources */
-static int 
+int 
 start_rdma_server(struct sockaddr_in *server_addr) 
 {
 	struct rdma_cm_event *cm_event = NULL;
@@ -187,7 +187,7 @@ start_rdma_server(struct sockaddr_in *server_addr)
 }
 
 /* Pre-posts a receive buffer and accepts an RDMA client connection */
-static int 
+int 
 accept_client_connection()
 {
 	struct rdma_conn_param conn_param;
@@ -265,7 +265,7 @@ accept_client_connection()
 }
 
 /* This function sends server side buffer metadata to the connected client */
-static int 
+int 
 send_server_metadata_to_client() 
 {
 	struct ibv_wc wc;
@@ -355,7 +355,7 @@ send_server_metadata_to_client()
 
 /* This is server side logic. Server passively waits for the client to call 
  * rdma_disconnect() and then it will clean up its resources */
-static int 
+int 
 disconnect_and_cleanup()
 {
 	struct rdma_cm_event *cm_event = NULL;
