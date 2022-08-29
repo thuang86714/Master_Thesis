@@ -69,6 +69,7 @@ private:
     int batchSize;
     opnum_t lastBatchEnd;
     bool batchComplete;
+    bool Amleader;
 
     Log log;
     std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
