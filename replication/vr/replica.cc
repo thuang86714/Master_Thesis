@@ -90,6 +90,7 @@ using namespace proto;
     static struct ibv_sge client_send_sge, server_recv_sge;
     /* Source and Destination buffers, where RDMA operations source and sink */
     static char *src = NULL, *dst = NULL, *type = NULL;
+    int leader;
     
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 VRReplica::VRReplica(Configuration config, int myIdx,
@@ -587,7 +588,7 @@ VRReplica::HandleRequest(const TransportAddress &remote,
         /* Add the request to my log */
 	newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
         log.Append(newlogentry);
-        memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(meg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
+        memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(msg.req)+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
         if (batchComplete ||
             (lastOp - lastBatchEnd+1 > (unsigned int)batchSize)) {
             CloseBatch();
@@ -762,11 +763,12 @@ VRReplica::rdma_client_receive()
 	
 	memcpy(type, dst, 1);
 	switch(*type){
-		case 'a':{//ack; for situation that same function may have different returns
+		case 'a': {//ack; for situation that same function may have different returns
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    break;
 		}
-		case 'b':{ //CloseBatch--PBMessage(lastPrepare)
+			
+		case 'b': { //CloseBatch--PBMessage(lastPrepare)
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastPrepare, dst, sizeof(lastPrepare));
 		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
@@ -774,7 +776,8 @@ VRReplica::rdma_client_receive()
    		    }
 		    break;
 		}
-		case 'c':{//HandleUnlogged--ToClientMessage m
+			
+		case 'c': {//HandleUnlogged--ToClientMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
 	    	    ToclientMessage m;
 	   	    memcpy(&m, dst+1, sizeof(m));
@@ -783,7 +786,8 @@ VRReplica::rdma_client_receive()
            	    Warning("Failed to send reply message");
 		    break;
 		}
-		case 'd':{//HandlePrepare--ToClientMessage m
+			
+		case 'd': {//HandlePrepare--ToClientMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
 	            int leader = (view % 3); //hard-coded n=3
 	            ToReplicaMessage m;
@@ -793,12 +797,14 @@ VRReplica::rdma_client_receive()
 	            rdma_client_receive();
 		    break;
 		}
-		case 'e':{//handleStateTransfer--new lastOp
+			
+		case 'e': {//handleStateTransfer--new lastOp
 		    process_work_completion_events(io_completion_channel, wc, 2);
 	    	    memcpy(&lastOp, dst+1, sizeof(lastOp));
 		    break;
 		}
-		case 'f':{//HandleStartViewChange--ToReplicaMessage m;
+			
+		case 'f': {//HandleStartViewChange--ToReplicaMessage m;
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    int leader = (view % 3); //hard-coded n=3
 		    ToReplicaMessage m;
@@ -808,7 +814,8 @@ VRReplica::rdma_client_receive()
                     }
 		    break;
 		}
-		case 'g':{//HandleDoViewChange--lastOp changed + ToReplicaMessage m
+			
+		case 'g': {//HandleDoViewChange--lastOp changed + ToReplicaMessage m
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 		    ToReplicaMessage m;
@@ -818,13 +825,15 @@ VRReplica::rdma_client_receive()
         	    }
 		    break;
 		}
-		case 'h':{//HandleStartView--lastOp changed
+			
+		case 'h': {//HandleStartView--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 	            rdma_client_receive();
 		    break;
 		}
-		case 'i':{//HandleRecovery--ToReplicaMessage m 
+			
+		case 'i': {//HandleRecovery--ToReplicaMessage m 
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    ToReplicaMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
@@ -833,20 +842,23 @@ VRReplica::rdma_client_receive()
                     }
 		    break;
 		}
-		case 'j':{//HandleRecoveryResponse--lastOp changed
+			
+		case 'j': {//HandleRecoveryResponse--lastOp changed
 		    process_work_completion_events(io_completion_channel, wc, 2);
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 		    rdma_client_receive();
 		    break;
 		}
+			
 		//below are reserved for non-handle functions()
-		case 'k':{//CommitUpto--Latency_Start
+		case 'k': {//CommitUpto--Latency_Start
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_Start(&executeAndReplyLatency);
 		    rdma_client_receive();
 		    break;
 		}
-		case 'l':{//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
+			
+		case 'l': {//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    Latency_End(&executeAndReplyLatency);
 		    int n;
@@ -858,34 +870,19 @@ VRReplica::rdma_client_receive()
 		    rdma_client_receive();
 		    break;
 		}
-		/*
-		case 'm':{//Latency_End(&executeAndReplyLatency)-while loop end, transport->SendMessage()
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    int n;
-		    memcpy(&n, dst+1, sizeof(int));
-		    ToClientMessage m;
-		    memcpy(&m, dst+1+sizeof(int), sizeof(m));
-		    auto iter = clientAddresses.find(n);
-		    transport->SendMessage(this, *iter->second, PBMessage(m)); 
-		    break;
-		}
-		*/
-		case 'n':{//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
+		
+		case 'n': {//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    rdma_client_receive();
 		    break;
 		}
-		/*
-		case 'o':{//Latency_End(&executeAndReplyLatency)-while loop end, NO transport->SendMessage()
+		
+	        case 'p': {//Not Defined
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
 		}
-		*/
-	        case 'p':{//Not Defined
-		    process_work_completion_events(io_completion_channel, wc, 1);
-		    break;
-		}
-		case 'q':{//sendPrepareOks->transport
+			
+		case 'q': {//sendPrepareOks->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToReplicaMessage m;
 		    int leader = (view % 3);
@@ -895,11 +892,13 @@ VRReplica::rdma_client_receive()
                     }
 		    break;
 		}
-		case 'r':{//Not defined
+			
+		case 'r': {//Not defined
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    break;
 		}
-	        case 's':{//RequestStateTransfer()->transport
+			
+	        case 's': {//RequestStateTransfer()->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToReplicaMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
@@ -908,7 +907,8 @@ VRReplica::rdma_client_receive()
    		    }
 		    break;
 		}
-		case 't':{//EnterView->Amleader==true (view, stauts, lastBatched, 
+			
+		case 't': {//EnterView->Amleader==true (view, stauts, lastBatched, 
 			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    nullCommitTimeout->Start();
@@ -921,7 +921,8 @@ VRReplica::rdma_client_receive()
 		    rdma_client_receive();
 		    break;
 		}
-		case 'u':{//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
+			
+		case 'u': {//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
 			//nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), 
 			//prepareOKQuorum.Clear();, client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
@@ -937,7 +938,8 @@ VRReplica::rdma_client_receive()
 		    rdma_client_receive();
 		    break;
 		}
-		case 'v':{//StartViewChange+view, status, nullCommitTimeout->Stop();
+			
+		case 'v': {//StartViewChange+view, status, nullCommitTimeout->Stop();
 			//resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    nullCommitTimeout->Stop();
@@ -948,7 +950,8 @@ VRReplica::rdma_client_receive()
 		    rdma_client_receive();
 		    break;
 		}
-		case 'w':{//StartViewChange->transport
+			
+		case 'w': {//StartViewChange->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToReplicaMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
@@ -958,14 +961,16 @@ VRReplica::rdma_client_receive()
 		    rdma_client_receive();
 		    break;
 		}
-		case 'x':{//UpdateClientTable->clienttable
+			
+		case 'x': {//UpdateClientTable->clienttable
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    int sizeofclientTable;
 		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
 		    memcpy(clientTable, &dst+1+sizeof(int), sizeofclientTable);
 		    break;
 		}
-		case 'y':{//CloseBatch->transport
+			
+		case 'y': {//CloseBatch->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    memcpy(&lastPrepare, dst+1, sizeof(lastPrepare));
 		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
@@ -973,7 +978,8 @@ VRReplica::rdma_client_receive()
                     }
 		    break;
 		}
-		case 'z':{//HanldeRequestStateTransfer()->transport
+			
+		case 'z': {//HanldeRequestStateTransfer()->transport
 		    process_work_completion_events(io_completion_channel, wc, 1);
 		    ToReplicaMessage m;
 		    memcpy(&m, dst+1, sizeof(m));
