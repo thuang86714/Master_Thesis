@@ -162,7 +162,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
     struct ibv_wc wc[2];
-    memset(src, 0, sizeof(src));
+    bzero(src, sizeof(src));
     memset(src, 'a', 1);
     memcpy(src+1, &config, sizeof(config));
     //copy myIdx
