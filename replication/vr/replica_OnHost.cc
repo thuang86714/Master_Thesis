@@ -108,40 +108,11 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
         static std::map<uint64_t, ClientTableEntry> clientTable;
        
 struct ClientTableEntry
-    {
+{
         uint64_t lastReqId;
         bool replied;
         proto::ToClientMessage reply;
-    };
-
-
-    if (initialize) {
-        
-    } else {
-        status = STATUS_RECOVERING;
-        recoveryNonce = GenerateNonce();
-        SendRecoveryMessages();
-        recoveryTimeout->Start();
-    }
-}
-void
-delete_VRReplica()
-{
-    //Latency_Dump(&requestLatency);
-    //Latency_Dump(&executeAndReplyLatency);
-
-    delete viewChangeTimeout;
-    delete nullCommitTimeout;
-    delete stateTransferTimeout;
-    delete resendPrepareTimeout;
-    delete closeBatchTimeout;
-    delete recoveryTimeout;
-
-    for (auto &kv : pendingPrepares) {
-        delete kv.first;
-    }
-    disconnect_and_cleanup();
-}
+};
 
 uint64_t
 GenerateNonce() const
