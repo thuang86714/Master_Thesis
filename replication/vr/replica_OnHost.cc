@@ -106,7 +106,7 @@ using namespace proto;
         static proto::ToReplicaMessage lastPrepare;
         static Log log(false);
         static ReplicaStatus status = STATUS_NORMAL;
-        static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum;
+        static dsnet::vr::QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum; //trytry
         static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
         static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
         static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
