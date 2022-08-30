@@ -114,16 +114,14 @@ using namespace proto;
         static dsnet::Configuration configuration;
         static dsnet::Transport *transport;
         static std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
-
+        static const int replicaidx = 0;
 struct ClientTableEntry
 {
         uint64_t lastReqId;
         bool replied;
         proto::ToClientMessage reply;
 };
-}
-}
-using namespace proto;
+
 void
 newTimeoutandLatency()
 {
@@ -184,7 +182,7 @@ CommitUpTo(opnum_t upto)
     while (timeleft > 0) {
         Latency_Start(&executeAndReplyLatency);
         memset(src, 'k', 1);
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
         //lastCommitted++;
 
@@ -294,7 +292,7 @@ SendPrepareOKs(opnum_t oldLastOp)
                reply->view(), reply->opnum());
         memset(src, 'q', 1);
 	memcpy(src+1, &m, sizeof(m));
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
 	/*   
         if (!(transport->SendMessageToReplica(this,configuration.GetLeaderIndex(view),PBMessage(m)))) {
@@ -320,7 +318,7 @@ RequestStateTransfer()
         RDebug("Skipping state transfer request " FMT_VIEWSTAMP
                " because we already requested it", view, lastCommitted);
 	memset(src, 'a', 1);
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -331,7 +329,7 @@ RequestStateTransfer()
     lastRequestStateTransferOpnum = lastCommitted;
     memset(src, 's', 1);
     memcpy(src+1, &m, sizeof(m));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
@@ -358,7 +356,7 @@ EnterView(view_t newview)
         viewChangeTimeout->Stop();
         nullCommitTimeout->Start();
 	memset(src, 't', 1);
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
     } else {
         viewChangeTimeout->Start();
@@ -366,7 +364,7 @@ EnterView(view_t newview)
         resendPrepareTimeout->Stop();
         closeBatchTimeout->Stop();
 	memset(src, 'u', 1);
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
     }
 
@@ -390,7 +388,7 @@ StartViewChange(view_t newview)
     nullCommitTimeout->Stop();
     resendPrepareTimeout->Stop();
     closeBatchTimeout->Stop();
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
     svc->set_view(newview);
@@ -398,7 +396,7 @@ StartViewChange(view_t newview)
     svc->set_lastcommitted(lastCommitted);
     memset(src, 'w', 1);
     memcpy(src+1, &m, sizeof(m));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, wc, 2);
     /*
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
@@ -427,7 +425,7 @@ UpdateClientTable(const Request &req)
     int sizeofclientTable = sizeof(clientTable);
     memcpy(src+1, &sizeofclientTable, sizeof(int));
     memcpy(src+1+sizeof(int), &clientTable, sizeof(clientTable));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
 }
 
@@ -451,8 +449,7 @@ HandleUnloggedRequest(const UnloggedRequestMessage &msg) //delete remote
     ExecuteUnlogged(msg.req(), *reply);
     memset(src, 'c', 1);
     memcpy(src+1, &m, sizeof(m));
-    memcpy(src+1+sizeof(m), &remote, sizeof(remote));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
     if (!(transport->SendMessage(this, remote, PBMessage(m))))
@@ -478,8 +475,8 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     if (msg.view() < view) {
         RDebug("Ignoring PREPARE due to stale view");
 	memset(src, 'a', 1);
-        rdma_server_send();
-        process_work_completion_events(io_completion_channel, wc, 1);
+        dsnet::vr::rdma_server_send();
+        process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
 
@@ -508,7 +505,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
         reply->set_replicaidx(0);
 	memset(src, 'd', 1);
 	memcpy(src+1, &m, sizeof(m));
-	rdma_server_send();
+	dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
 	/*
         if (!(transport->SendMessageToReplica(this,
@@ -547,7 +544,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     reply->set_replicaidx(0);
     memset(src, 'd', 1);
     memcpy(src+1, &m, sizeof(m));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
     if (!(transport->SendMessageToReplica(this,
@@ -568,7 +565,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
     if (status != STATUS_NORMAL) {
         RDebug("Ignoring COMMIT due to abnormal status");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -576,7 +573,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
     if (msg.view() < view) {
         RDebug("Ignoring COMMIT due to stale view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -595,7 +592,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
     if (msg.opnum() <= lastCommitted) {
         RDebug("Ignoring COMMIT; already committed that operation");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -607,7 +604,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
 
     CommitUpTo(msg.opnum());
     memset(src, 'a', 1);
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
 }
 
@@ -622,7 +619,7 @@ HandleRequestStateTransfer(const RequestStateTransferMessage &msg) //delete remo
     if (status != STATUS_NORMAL) {
         RDebug("Ignoring REQUESTSTATETRANSFER due to abnormal status");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -644,7 +641,7 @@ HandleRequestStateTransfer(const RequestStateTransferMessage &msg) //delete remo
     log.Dump(msg.opnum()+1, reply->mutable_entries());
     memset(src, 'z', 1);
     memcpy(src+1, &m, sizeof(m));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     //transport->SendMessage(this, remote, PBMessage(m));
 }
@@ -660,7 +657,7 @@ HandleStateTransfer(const TransportAddress &remote,
     if (msg.view() < view) {
         RWarning("Ignoring state transfer for older view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -699,7 +696,7 @@ HandleStateTransfer(const TransportAddress &remote,
                 lastOp = newEntry.opnum();
 		memset(src, 'e', 1);
 		memcpy(src+1, &lastOp, sizeof(lastOp));
-                rdma_server_send();
+                dsnet::vr::rdma_server_send();
                 process_work_completion_events(io_completion_channel, &wc, 1);
                 oldLastOp = lastOp;
 
@@ -713,7 +710,7 @@ HandleStateTransfer(const TransportAddress &remote,
             lastOp++;
 	    memset(src, 'e', 1);
 	    memcpy(src+1, &lastOp, sizeof(lastOp));
-            rdma_server_send();
+            dsnet::vr::rdma_server_send();
             process_work_completion_events(io_completion_channel, &wc, 1);
             viewstamp_t vs = { newEntry.view(), newEntry.opnum() };
             log.Append(new LogEntry(vs, LOG_STATE_PREPARED, newEntry.request()));
@@ -742,7 +739,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
     if (msg.view() < view) {
         RDebug("Ignoring STARTVIEWCHANGE for older view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -750,7 +747,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
     if ((msg.view() == view) && (status != STATUS_VIEW_CHANGE)) {
         RDebug("Ignoring STARTVIEWCHANGE for current view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -791,7 +788,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
                      dvc->mutable_entries());
             memset(src, 'f', 1);
 	    memcpy(src+1, &m, sizeof(m));
-            rdma_server_send();
+            dsnet::vr::rdma_server_send();
             process_work_completion_events(io_completion_channel, &wc, 1);
 	    /*
             if (!(transport->SendMessageToReplica(this, leader, PBMessage(m)))) {
@@ -815,7 +812,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
     if (msg.view() < view) {
         RDebug("Ignoring DOVIEWCHANGE for older view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -823,7 +820,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
     if ((msg.view() == view) && (status != STATUS_VIEW_CHANGE)) {
         RDebug("Ignoring DOVIEWCHANGE for current view");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -927,7 +924,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
 
         log.Dump(minCommitted, sv->mutable_entries());
         memcpy(src+1+sizeof(lastOp), &m, sizeof(m));
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
 	/*
         if (!(transport->SendMessageToAll(this, PBMessage(m)))) {
@@ -938,7 +935,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
 }
 
 void
-HandleStartView(const StartViewMessage &msg) delete remote
+HandleStartView(const StartViewMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received STARTVIEW " FMT_VIEW
@@ -1003,7 +1000,7 @@ HandleRecovery(const RecoveryMessage &msg) //delete remote
     if (status != STATUS_NORMAL) {
         RDebug("Ignoring RECOVERY due to abnormal status");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -1020,8 +1017,7 @@ HandleRecovery(const RecoveryMessage &msg) //delete remote
     }
     memset(src, 'i', 1);
     memcpy(src+1, &m, sizeof(m));
-    memcpy(src+1+sizeof(m), &remote, sizeof(remote));
-    rdma_server_send();
+    dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
     /*
     if (!(transport->SendMessage(this, remote, PBMessage(m)))) {
@@ -1041,7 +1037,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
     if (status != STATUS_RECOVERING) {
         RDebug("Ignoring RECOVERYRESPONSE because we're not recovering");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -1049,7 +1045,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
     if (msg.nonce() != recoveryNonce) {
         RNotice("Ignoring recovery response because nonce didn't match");
 	memset(src, 'a', 1);
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
@@ -1066,14 +1062,14 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
         }
 
         int leader = configuration.GetLeaderIndex(highestView);
-        ASSERT(leader != replicaIdx);
+        Assert(leader != replicaIdx); //L1065 try try
         auto leaderResponse = msgs->find(leader);
         if ((leaderResponse == msgs->end()) ||
             (leaderResponse->second.view() != highestView)) {
             RDebug("Have quorum of RECOVERYRESPONSE messages, "
                    "but still need to wait for one from the leader");
 	    memset(src, 'a', 1);
-            rdma_server_send();
+            dsnet::vr::rdma_server_send();
             process_work_completion_events(io_completion_channel, &wc, 1);
             return;
         }
@@ -1086,7 +1082,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
         lastOp = leaderResponse->second.lastop();
 	memset(src, 'j', 1);
 	memcpy(src+1, &lastOp, sizeof(lastOp));
-        rdma_server_send();
+        dsnet::vr::rdma_server_send();
         process_work_completion_events(io_completion_channel, &wc, 1);
         CommitUpTo(leaderResponse->second.lastcommitted());
 	memset(src, 'a', 1);
@@ -1168,10 +1164,10 @@ setup_client_resources()
 	 * The capacity here is define statically but this can be probed from the 
 	 * device. We just use a small number as defined in rdma_common.h */
        bzero(&qp_init_attr, sizeof qp_init_attr);
-       qp_init_attr.cap.max_recv_sge = MAX_SGE; /* Maximum SGE per receive posting */
-       qp_init_attr.cap.max_recv_wr = MAX_WR; /* Maximum receive posting capacity */
-       qp_init_attr.cap.max_send_sge = MAX_SGE; /* Maximum SGE per send posting */
-       qp_init_attr.cap.max_send_wr = MAX_WR; /* Maximum send posting capacity */
+       qp_init_attr.cap.max_recv_sge = dsnet::vr::MAX_SGE; /* Maximum SGE per receive posting */
+       qp_init_attr.cap.max_recv_wr = dsnet::vr::MAX_WR; /* Maximum receive posting capacity */
+       qp_init_attr.cap.max_send_sge = dsnet::vr::MAX_SGE; /* Maximum SGE per send posting */
+       qp_init_attr.cap.max_send_wr = dsnet::vr::MAX_WR; /* Maximum send posting capacity */
        qp_init_attr.qp_type = IBV_QPT_RC; /* QP type, RC = Reliable connection */
        /* We use same completion queue, but one can use different queues */
        qp_init_attr.recv_cq = cq; /* Where should I notify for receive completion operations */
@@ -1518,15 +1514,15 @@ rdma_server_send()
 		       &server_send_wr /* Send request that we prepared before */, 
 		       &bad_server_send_wr);
 	
-	memset(src, 0, sizeof(src));
+	memset(src, 0, sizeof(*src));
 }
 	
 void
 rdma_server_receive()
 {
 	struct ibv_wc wc;
-	memset(dst,0, sizeof(dst));
-	memset(type, 0, sizeof(type));
+	memset(dst,0, sizeof(*dst));
+	memset(type, 0, sizeof(*type));
 	/* Now we prepare a READ using same variables but for destination */
 	client_recv_sge.addr = (uint64_t) server_dst_mr->addr;
 	client_recv_sge.length = (uint32_t) server_dst_mr->length;
@@ -1554,7 +1550,7 @@ rdma_server_receive()
 		    int *myIdx = NULL;
 		    std::string transport_cmdline;
 		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-		    memcpy(config, dst+1, sizeof(*config));
+		    memcpy(config, dst+1, sizeof(dsnet::Configuration));
 		    memcpy(myIdx, dst+1+sizeof(*config), sizeof(int));
 		    break;
 		}
@@ -1584,7 +1580,7 @@ rdma_server_receive()
 		}
 		case 'f':{//remote+StateTransfer
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg);
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleStateTransfer(replica_msg.state_transfer());
 		    break;
 		}
