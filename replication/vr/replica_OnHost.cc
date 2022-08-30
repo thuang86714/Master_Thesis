@@ -162,7 +162,7 @@ newTimeoutandLatency()
 }
 
 uint64_t
-GenerateNonce() const
+GenerateNonce()
 {
     std::random_device rd;
     std::mt19937_64 gen(rd());
@@ -171,7 +171,7 @@ GenerateNonce() const
 }
 
 bool
-AmLeader() const
+AmLeader() 
 {
     return (configuration.GetLeaderIndex(view) == 0);
 }
