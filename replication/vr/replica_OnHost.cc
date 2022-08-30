@@ -766,7 +766,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
                                                    msg)) {
         int leader = configuration.GetLeaderIndex(view);
         // Don't try to send a DoViewChange message to ourselves
-        if (leader != replicaIdx) {
+        if (leader != replicaidx) {
             ToReplicaMessage m;
             DoViewChangeMessage *dvc = m.mutable_do_view_change();
             dvc->set_view(view);
@@ -833,7 +833,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
         StartViewChange(msg.view());
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) == replicaIdx);
+    ASSERT(configuration.GetLeaderIndex(msg.view()) == replicaidx);
 
     auto msgs = doViewChangeQuorum.AddAndCheckForQuorum(msg.view(),
                                                         msg.replicaidx(),
@@ -960,7 +960,7 @@ HandleStartView(const StartViewMessage &msg) //delete remote
         return;
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) != replicaIdx);
+    ASSERT(configuration.GetLeaderIndex(msg.view()) != replicaidx);
 
     if (msg.entries_size() == 0) {
         ASSERT(msg.lastcommitted() == lastCommitted);
@@ -1007,7 +1007,7 @@ HandleRecovery(const RecoveryMessage &msg) //delete remote
 
     ToReplicaMessage m;
     RecoveryResponseMessage *reply = m.mutable_recovery_response();
-    reply->set_replicaidx(replicaIdx);
+    reply->set_replicaidx(replicaidx);
     reply->set_view(view);
     reply->set_nonce(msg.nonce());
     if (AmLeader()) {
@@ -1062,7 +1062,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
         }
 
         int leader = configuration.GetLeaderIndex(highestView);
-        Assert(leader != replicaIdx); //L1065 try try
+        Assert(leader != replicaidx); //L1065 try try
         auto leaderResponse = msgs->find(leader);
         if ((leaderResponse == msgs->end()) ||
             (leaderResponse->second.view() != highestView)) {
@@ -1164,10 +1164,10 @@ setup_client_resources()
 	 * The capacity here is define statically but this can be probed from the 
 	 * device. We just use a small number as defined in rdma_common.h */
        bzero(&qp_init_attr, sizeof qp_init_attr);
-       qp_init_attr.cap.max_recv_sge = dsnet::vr::MAX_SGE; /* Maximum SGE per receive posting */
-       qp_init_attr.cap.max_recv_wr = dsnet::vr::MAX_WR; /* Maximum receive posting capacity */
-       qp_init_attr.cap.max_send_sge = dsnet::vr::MAX_SGE; /* Maximum SGE per send posting */
-       qp_init_attr.cap.max_send_wr = dsnet::vr::MAX_WR; /* Maximum send posting capacity */
+       qp_init_attr.cap.max_recv_sge = 2; /* Maximum SGE per receive posting */
+       qp_init_attr.cap.max_recv_wr = 8; /* Maximum receive posting capacity */
+       qp_init_attr.cap.max_send_sge = 2; /* Maximum SGE per send posting */
+       qp_init_attr.cap.max_send_wr = 8; /* Maximum send posting capacity */
        qp_init_attr.qp_type = IBV_QPT_RC; /* QP type, RC = Reliable connection */
        /* We use same completion queue, but one can use different queues */
        qp_init_attr.recv_cq = cq; /* Where should I notify for receive completion operations */
