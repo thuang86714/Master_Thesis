@@ -94,18 +94,21 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
                        *resendPrepareTimeout = NULL, 
                        *closeBatchTimeout= NULL,
                        *recoveryTimeout= NULL;
+        static Latency_t requestLatency, executeAndReplyLatency;
         static view_t view, lastRequestStateTransferView;
         static opnum_t lastCommitted, lastOp, lastRequestStateTransferOpnum, lastBatchEnd;
         static uint64_t recoveryNonce;
         static bool batchComplete;
         static proto::ToReplicaMessage lastPrepare;
-        static Log log;
-        static Latency_t requestLatency, executeAndReplyLatency;
+        static Log log(false);
+        
         static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum;
         static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
         static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
         static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
         static std::map<uint64_t, ClientTableEntry> clientTable;
+        static dsnet::Configuration configuration;
+        static dsnet::Transport *transport;
        
 struct ClientTableEntry
 {
@@ -113,6 +116,43 @@ struct ClientTableEntry
         bool replied;
         proto::ToClientMessage reply;
 };
+
+void
+newTimeoutandLatency()
+{
+	std::string transport_cmdline;
+	transport = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
+	viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
+            RWarning("Have not heard from leader; starting view change");
+            StartViewChange(view+1);
+        });
+        stateTransferTimeout = new Timeout(transport, 1000, [this]() {
+            lastRequestStateTransferView = 0;
+            lastRequestStateTransferOpnum = 0;
+        });
+        stateTransferTimeout->Start();
+        recoveryTimeout = new Timeout(transport, 5000, [this]() {
+            SendRecoveryMessages();
+        });
+	nullCommitTimeout = new Timeout(transport, 1000, [this]() {
+            SendNullCommit();
+        });
+        resendPrepareTimeout = new Timeout(transport, 500, [this]() {
+            ResendPrepare();
+        });
+        closeBatchTimeout = new Timeout(transport, 300, [this]() {
+            CloseBatch();
+        });
+    
+        _Latency_Init(&requestLatency, "request");
+        _Latency_Init(&executeAndReplyLatency, "executeAndReply");
+	
+	if (AmLeader()) {
+            nullCommitTimeout->Start();
+        } else {
+            viewChangeTimeout->Start();
+        }
+}
 
 uint64_t
 GenerateNonce() const
@@ -1706,36 +1746,7 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
-            RWarning("Have not heard from leader; starting view change");
-            StartViewChange(view+1);
-        });
-        stateTransferTimeout = new Timeout(transport, 1000, [this]() {
-            this->lastRequestStateTransferView = 0;
-            this->lastRequestStateTransferOpnum = 0;
-        });
-        stateTransferTimeout->Start();
-        recoveryTimeout = new Timeout(transport, 5000, [this]() {
-            SendRecoveryMessages();
-        });
-        nullCommitTimeout = new Timeout(transport, 1000, [this]() {
-            SendNullCommit();
-        });
-        resendPrepareTimeout = new Timeout(transport, 500, [this]() {
-            ResendPrepare();
-        });
-        closeBatchTimeout = new Timeout(transport, 300, [this]() {
-            CloseBatch();
-        });
-    
-        _Latency_Init(&requestLatency, "request");
-        _Latency_Init(&executeAndReplyLatency, "executeAndReply");
-	
-	if (AmLeader()) {
-            nullCommitTimeout->Start();
-        } else {
-            viewChangeTimeout->Start();
-        }
+	newTimeoutandLatency();
 	
 	while(true){
 	    rdma_server_receive();
