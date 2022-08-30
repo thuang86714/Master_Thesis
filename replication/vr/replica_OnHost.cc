@@ -232,7 +232,7 @@ CommitUpTo(opnum_t upto)
 		memset(src,'l',1);
 		rdma_server_send();
 		process_work_completion_events(io_completion_channel, &wc, 1);
-	    }
+	    
 	}else{
 	    Latency_End(&executeAndReplyLatency);
 		memset(src,'n',1);
