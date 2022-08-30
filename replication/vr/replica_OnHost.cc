@@ -1550,8 +1550,8 @@ rdma_server_receive()
 		    int *myIdx = NULL;
 		    std::string transport_cmdline;
 		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-		    memcpy(&configiguration, dst+1, sizeof(dsnet::Configuration));
-		    memcpy(myIdx, dst+1+sizeof(*config), sizeof(int));
+		    memcpy(&configuration, dst+1, sizeof(dsnet::Configuration));
+		    memcpy(myIdx, dst+1+sizeof(dsnet::Configuration), sizeof(int));
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
