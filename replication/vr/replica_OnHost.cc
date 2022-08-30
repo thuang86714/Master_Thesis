@@ -179,12 +179,12 @@ CommitUpTo(opnum_t upto)
 {   
     struct ibv_wc wc;
     int timeleft = upto - lastCommitted;
-    while (timeleft > 0) {
+    while (lastCommitted < upto) {
         Latency_Start(&executeAndReplyLatency);
         memset(src, 'k', 1);
 	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
-        //lastCommitted++;
+        lastCommitted++;
 
         /* Find operation in log */
         const LogEntry *entry = log.Find(lastCommitted);
@@ -228,29 +228,16 @@ CommitUpTo(opnum_t upto)
             //transport->SendMessage(this, *iter->second, PBMessage(m));
 	    memcpy(src+1, &n, sizeof(int));
 	    memcpy(src+1+sizeof(int), &m, sizeof(m));
-	    timeleft--;
 	    Latency_End(&executeAndReplyLatency);
-	    if (timeleft>0){
 		memset(src,'l',1);
-		rdma_server_send();
-		process_work_completion_events(io_completion_channel, &wc, 1);
-	    }else{
-		memset(src,'m',1);
 		rdma_server_send();
 		process_work_completion_events(io_completion_channel, &wc, 1);
 	    }
 	}else{
-	    timeleft--;
 	    Latency_End(&executeAndReplyLatency);
-	    if (timeleft>0){
 		memset(src,'n',1);
 		rdma_server_send();
 		process_work_completion_events(io_completion_channel, &wc, 1);
-	    }else{
-		memset(src,'o',1);
-		rdma_server_send();
-		process_work_completion_events(io_completion_channel, &wc, 1);
-	    }
 	}
     }
 }
