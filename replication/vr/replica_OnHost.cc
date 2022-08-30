@@ -45,7 +45,6 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 
 */
 #include "common/replica.h"
-#include "replication/vr/replica.h"
 #include "rdma_common.h"
 #include "common/log.h"
 #include "common/quorumset.h"
