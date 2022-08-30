@@ -265,21 +265,6 @@ void
 SendRecoveryMessages()
 {return;}
 
-void
-UpdateClientTable(const Request &req)
-{
-    ClientTableEntry &entry = clientTable[req.clientid()];
-
-    ASSERT(entry.lastReqId <= req.clientreqid());
-
-    if (entry.lastReqId == req.clientreqid()) {
-        return;
-    }
-
-    entry.lastReqId = req.clientreqid();
-    entry.replied = false;
-    entry.reply.Clear();
-}
 
 void
 SendPrepareOKs(opnum_t oldLastOp)
