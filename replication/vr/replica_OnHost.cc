@@ -127,25 +127,25 @@ newTimeoutandLatency()
 {
 	std::string transport_cmdline;
 	transportptr = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
-	viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
+	viewChangeTimeout = new Timeout(transportptr, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
         });
-        stateTransferTimeout = new Timeout(transport, 1000, [this]() {
+        stateTransferTimeout = new Timeout(transportptr, 1000, [this]() {
             lastRequestStateTransferView = 0;
             lastRequestStateTransferOpnum = 0;
         });
         stateTransferTimeout->Start();
-        recoveryTimeout = new Timeout(transport, 5000, [this]() {
+        recoveryTimeout = new Timeout(transportptr, 5000, [this]() {
             SendRecoveryMessages();
         });
-	nullCommitTimeout = new Timeout(transport, 1000, [this]() {
+	nullCommitTimeout = new Timeout(transportptr, 1000, [this]() {
             SendNullCommit();
         });
-        resendPrepareTimeout = new Timeout(transport, 500, [this]() {
+        resendPrepareTimeout = new Timeout(transportptr, 500, [this]() {
             //ResendPrepare();
         });
-        closeBatchTimeout = new Timeout(transport, 300, [this]() {
+        closeBatchTimeout = new Timeout(transportptr, 300, [this]() {
             CloseBatch();
         });
     
