@@ -126,7 +126,7 @@ void
 newTimeoutandLatency()
 {
 	std::string transport_cmdline;
-	transport = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
+	transportptr = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
 	viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
@@ -1545,9 +1545,6 @@ rdma_server_receive()
 	switch(*type){
 		case 'a':{//config+myIdx+initialize+transport+nullApp
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    int *myIdx = NULL;
-		    std::string transport_cmdline;
-		    transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
