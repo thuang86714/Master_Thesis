@@ -1089,7 +1089,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
                    "but still need to wait for one from the leader");
 	    memset(src, 'a', 1);
             rdma_server_send();
-            process_work_completion_events(io_completion_channel, wc, 1);
+            process_work_completion_events(io_completion_channel, &wc, 1);
             return;
         }
 
@@ -1381,10 +1381,10 @@ send_server_metadata_to_client()
 	/* We need to setup requested memory buffer. This is where the client will 
 	* do RDMA READs and WRITEs. */
        server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
-		       src, sizeof(src), /* what size to allocate */, 
+		       src, sizeof(src),
 		       IBV_ACCESS_LOCAL_WRITE) /* access permissions */);
-	server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
-		       dst, sizeof(dst), /* what size to allocate */, 
+       server_dst_mr = rdma_buffer_register(pd /* which protection domain */, 
+		       dst, sizeof(dst),
 		       IBV_ACCESS_LOCAL_WRITE)
        if(!server_src_mr){
 	       rdma_error("Server failed to create a buffer \n");
@@ -1611,7 +1611,7 @@ rdma_server_receive()
 		}
 		case 'h':{//remote+DoViewChange
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&(replica_msg, dst+1, sizeof((replica_msg));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleDoViewChange(replica_msg.do_view_change());
 		    break;
 		}
@@ -1672,14 +1672,14 @@ rdma_server_receive()
 		    break;
 		}
 		case 'v':{//NullCOmmitTimeout->start()
-		    process_work_completion_events(io_completion_channel, wc, 1);
+		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    nullCommitTimeout->Start();
 		    break;
 		}
 		case 'B':{//HandleRequest()--clientAddress, updateclienttable(), 
 			//lastOp, new log entry, nullCommitTimeout->Reset();
 		    nullCommitTimeout->Reset();
-		    process_work_completion_events(io_completion_channel, wc, 1);
+		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int size;
 		    Request req;
 		    LogEntry* newlogentry;
@@ -1699,7 +1699,7 @@ rdma_server_receive()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int size;
 		    Request req;
-		    LogEntry newlogentry;
+		    LogEntry* newlogentry;
 		    memcpy(&size, dst+1, sizeof(int));
 		    memcpy(&clientAddresses, dst+1+sizeof(int), size);
 		    memcpy(&req, dst+1+sizeof(int)+size, sizeof(Request));
