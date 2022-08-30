@@ -118,7 +118,7 @@ struct ClientTableEntry
         static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
         static std::map<uint64_t, ClientTableEntry> clientTable;
         //static dsnet::Configuration configuration;
-        static dsnet::Transport *transport;
+        static dsnet::Transport *transportptr;
         static std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
         static const int replicaidx = 0;
 
@@ -1547,10 +1547,7 @@ rdma_server_receive()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int *myIdx = NULL;
 		    std::string transport_cmdline;
-		    static Configuration configuration
-		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-		    memcpy(&configuration, dst+1, sizeof(dsnet::Configuration));
-		    memcpy(myIdx, dst+1+sizeof(dsnet::Configuration), sizeof(int));
+		    transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
 		    break;
 		}
 		case 'b':{//remote+Unlogged_request
