@@ -258,11 +258,11 @@ CommitUpTo(opnum_t upto)
 }
 
 void
-VRReplica::SendNullCommit()
+SendNullCommit()
 {return;}
 
 void
-VRReplica::SendRecoveryMessages()
+SendRecoveryMessages()
 {return;}
 
 void
