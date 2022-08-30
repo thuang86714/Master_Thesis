@@ -774,14 +774,14 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
     SendPrepareOKs(oldLastOp);
 
     // Process pending prepares
-    std::list<std::pair<TransportAddress *, PrepareMessage> >pending = pendingPrepares;
-    pendingPrepares.clear();
-    for (auto & msgpair : pending) {
-        RDebug("Processing pending prepare message");
-        HandlePrepare(*msgpair.first, msgpair.second);
-        delete msgpair.first;
-    }
-    memset(src, 'a', 1);
+    //std::list<std::pair<TransportAddress *, PrepareMessage> >pending = pendingPrepares;
+    //pendingPrepares.clear();
+    //for (auto & msgpair : pending) {
+    //    RDebug("Processing pending prepare message");
+    //    HandlePrepare(*msgpair.first, msgpair.second);
+    //    delete msgpair.first;
+    //}
+    memset(src, 'p', 1);
     rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
 }
