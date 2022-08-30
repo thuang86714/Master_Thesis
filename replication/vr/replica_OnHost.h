@@ -17,9 +17,9 @@ namespace vr {
   
 void newTimeoutandLatency();
   
-uint64_t GenerateNonce() const;
+uint64_t GenerateNonce() ;
   
-bool AmLeader() const;
+bool AmLeader() ;
   
 void CommitUpTo(opnum_t upto);  
   
