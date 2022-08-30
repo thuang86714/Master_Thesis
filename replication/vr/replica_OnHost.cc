@@ -69,7 +69,10 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #define RWarning(fmt, ...) Warning("[%d] " fmt, 0, ##__VA_ARGS__)
 #define RPanic(fmt, ...) Panic("[%d] " fmt, 0, ##__VA_ARGS__)
 
+namespace dsnet{
+namespace vr{
 
+using namespace proto;
 
 //Host Machine should be RDMA server
 /* These are the RDMA resources needed to setup an RDMA connection */
@@ -118,7 +121,9 @@ struct ClientTableEntry
         bool replied;
         proto::ToClientMessage reply;
 };
-
+}
+}
+using namespace proto;
 void
 newTimeoutandLatency()
 {
