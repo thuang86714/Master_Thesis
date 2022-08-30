@@ -102,7 +102,7 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
         static bool batchComplete;
         static proto::ToReplicaMessage lastPrepare;
         static Log log(false);
-        
+        static sting status = "STATUS_NORMAL";
         static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum;
         static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
         static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
@@ -250,6 +250,30 @@ CommitUpTo(opnum_t upto)
 	    }
 	}
     }
+}
+
+void
+VRReplica::SendNullCommit()
+{return;}
+
+void
+VRReplica::SendRecoveryMessages()
+{return;}
+
+void
+UpdateClientTable(const Request &req)
+{
+    ClientTableEntry &entry = clientTable[req.clientid()];
+
+    ASSERT(entry.lastReqId <= req.clientreqid());
+
+    if (entry.lastReqId == req.clientreqid()) {
+        return;
+    }
+
+    entry.lastReqId = req.clientreqid();
+    entry.replied = false;
+    entry.reply.Clear();
 }
 
 void
