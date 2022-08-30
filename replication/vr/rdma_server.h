@@ -33,5 +33,9 @@ int disconnect_and_cleanup();
 
 void usage();
   
+void rdma_server_send();
+  
+void rdma_server_receive();
+  
 }
 }
