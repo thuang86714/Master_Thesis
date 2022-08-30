@@ -428,8 +428,7 @@ UpdateClientTable(const Request &req)
 
     
 void
-HandleUnloggedRequest(const TransportAddress &remote,
-                                 const UnloggedRequestMessage &msg)
+HandleUnloggedRequest(const UnloggedRequestMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     if (status != STATUS_NORMAL) {
@@ -457,8 +456,7 @@ HandleUnloggedRequest(const TransportAddress &remote,
 }
 
 void
-HandlePrepare(const TransportAddress &remote,
-                         const PrepareMessage &msg)
+HandlePrepare(const PrepareMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received PREPARE <" FMT_VIEW "," FMT_OPNUM "-" FMT_OPNUM ">",
@@ -557,8 +555,7 @@ HandlePrepare(const TransportAddress &remote,
 
     
 void
-HandleCommit(const TransportAddress &remote,
-                        const CommitMessage &msg)
+HandleCommit(const CommitMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received COMMIT " FMT_VIEWSTAMP, msg.view(), msg.opnum());
@@ -611,8 +608,7 @@ HandleCommit(const TransportAddress &remote,
 
 
 void
-HandleRequestStateTransfer(const TransportAddress &remote,
-                                      const RequestStateTransferMessage &msg)
+HandleRequestStateTransfer(const RequestStateTransferMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received REQUESTSTATETRANSFER " FMT_VIEWSTAMP,
@@ -732,8 +728,7 @@ HandleStateTransfer(const TransportAddress &remote,
 }
 
 void
-HandleStartViewChange(const TransportAddress &remote,
-                                 const StartViewChangeMessage &msg)
+HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received STARTVIEWCHANGE " FMT_VIEW " from replica %d",
@@ -804,8 +799,7 @@ HandleStartViewChange(const TransportAddress &remote,
 
 
 void
-HandleDoViewChange(const TransportAddress &remote,
-                              const DoViewChangeMessage &msg)
+HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
 {
     struct ibv_wc wc;
     RDebug("Received DOVIEWCHANGE " FMT_VIEW " from replica %d, "
@@ -939,8 +933,7 @@ HandleDoViewChange(const TransportAddress &remote,
 }
 
 void
-HandleStartView(const TransportAddress &remote,
-                           const StartViewMessage &msg)
+HandleStartView(const StartViewMessage &msg) delete remote
 {
     struct ibv_wc wc;
     RDebug("Received STARTVIEW " FMT_VIEW
@@ -997,8 +990,7 @@ HandleStartView(const TransportAddress &remote,
 }
 
 void
-HandleRecovery(const TransportAddress &remote,
-                          const RecoveryMessage &msg)
+HandleRecovery(const RecoveryMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received RECOVERY from replica %d", msg.replicaidx());
@@ -1035,8 +1027,7 @@ HandleRecovery(const TransportAddress &remote,
 }
 
 void
-HandleRecoveryResponse(const TransportAddress &remote,
-                                  const RecoveryResponseMessage &msg)
+HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
 {
     struct ibv_wc wc;
     RDebug("Received RECOVERYRESPONSE from replica %d",
@@ -1152,7 +1143,7 @@ rdma_server_receive()
 	//leave process_work_completion_events()
 	debug("Client side receive is complete \n");
 	
-	
+	ToReplicaMessage replica_msg;
 	//ibv_post_recv();
     	memcpy(type, dst, 1);
 	switch(*type){
@@ -1168,92 +1159,62 @@ rdma_server_receive()
 		}
 		case 'b':{//remote+Unlogged_request
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.unlogged_request(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.unlogged_request()));
-		    HandleUnloggedRequest(remote, replica_msg.unlogged_request());
+		    memcpy(&replica_msg.unlogged_request(), dst+1, sizeof(replica_msg.unlogged_request()));
+		    HandleUnloggedRequest(replica_msg.unlogged_request());
 		    break;
 		}
 		case 'c':{//remote+Prepare
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.prepare(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.prepare()));
-		    HandlePrepare(remote, replica_msg.prepare());
+		    memcpy(&replica_msg.prepare(), dst+1, sizeof(replica_msg.prepare()));
+		    HandlePrepare(replica_msg.prepare());
 		    break;
 		}
 		case 'd':{//remote+Commit
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.commit(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.commit()));
-		    HandleCommit(remote, replica_msg.commit());
+		    memcpy(&replica_msg.commit(), dst+1, sizeof(replica_msg.commit()));
+		    HandleCommit(replica_msg.commit());
 		    break;
 		}
 		case 'e':{//remote+RequestStateTransfer
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.request_state_transfer(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.request_state_transfer()));
-		    HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
+		    memcpy(&replica_msg.request_state_transfer(), dst+1, sizeof(replica_msg.request_state_transfer()));
+		    HandleRequestStateTransfer(replica_msg.request_state_transfer());
 		    break;
 		}
 		case 'f':{//remote+StateTransfer
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.state_transfer(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.state_transfer()));
-		    HandleStateTransfer(remote, replica_msg.state_transfer());
+		    memcpy(&replica_msg.state_transfer(), dst+1, sizeof(replica_msg.state_transfer()));
+		    HandleStateTransfer(replica_msg.state_transfer());
 		    break;
 		}
 		case 'g':{//remote+StartViewChange
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.start_view_change(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.start_view_change()));
-		    HandleStartViewChange(remote, replica_msg.start_view_change());
+		    memcpy(&replica_msg.start_view_change(), dst+1, sizeof(replica_msg.start_view_change()));
+		    HandleStartViewChange(replica_msg.start_view_change());
 		    break;
 		}
 		case 'h':{//remote+DoViewChange
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&(replica_msg.do_view_change(), dst+1+sizeof(TransportAddress), sizeof((replica_msg.do_view_change()));
-		    HandleDoViewChange(remote, replica_msg.do_view_change());
+		    memcpy(&(replica_msg.do_view_change(), dst+1, sizeof((replica_msg.do_view_change()));
+		    HandleDoViewChange(replica_msg.do_view_change());
 		    break;
 		}
 		case 'i':{//remote+StartView
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.start_view(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.start_view()));
-		    HandleStartView(remote, replica_msg.start_view());
+		    memcpy(&replica_msg.start_view(), dst+1, sizeof(replica_msg.start_view()));
+		    HandleStartView(replica_msg.start_view());
 		    break;
 		}
 		case 'j':{//remote+Recovery 
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.recovery(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.recovery()));
-		    HandleRecovery(remote, replica_msg.recovery());
+		    memcpy(&replica_msg.recovery(), dst+1, sizeof(replica_msg.recovery()));
+		    HandleRecovery(replica_msg.recovery());
 		    break;
 		}
 		case 'k':{//remote+RecoveryResponse 
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    TransportAddress remote;
-		    ToReplicaMessage replica_msg;
-		    memcpy(&remote, dst+1, sizeof(TransportAddress));
-		    memcpy(&replica_msg.recovery_response(), dst+1+sizeof(TransportAddress), sizeof(replica_msg.recovery_response()));
-		    HandleRecoveryResponse(remote, replica_msg.recovery_response());
+		    memcpy(&replica_msg.recovery_response(), dst+1, sizeof(replica_msg.recovery_response()));
+		    HandleRecoveryResponse(replica_msg.recovery_response());
 		    break;
 		}
 		case 'l':{//Closebatch 
