@@ -1391,6 +1391,9 @@ rdma_server_receive()
 		    memcpy(&msg, dst+1+sizeof(viewstamp_t), sizeof(msg));
 		    prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg);
 		    CommitUpTo(msg.opnum());
+		    memset(src, 'a', 1);
+    		    rdma_server_send();
+    		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    break;
 		}
 		
