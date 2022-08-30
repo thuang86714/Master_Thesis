@@ -78,6 +78,12 @@ using namespace proto;
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
 //write a main, so during experiment, I will also run one process on Node10
+struct ClientTableEntry
+{
+        uint64_t lastReqId;
+        bool replied;
+        proto::ToClientMessage reply;
+};
 	static struct rdma_event_channel *cm_event_channel = NULL;
 	static struct rdma_cm_id *cm_server_id = NULL, *cm_client_id = NULL;
 	static struct ibv_pd *pd = NULL;
@@ -106,22 +112,15 @@ using namespace proto;
         static proto::ToReplicaMessage lastPrepare;
         static Log log(false);
         static ReplicaStatus status = STATUS_NORMAL;
-        static dsnet::vr::QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum; //trytry
+        static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum; //trytry
         static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
         static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
         static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
         static std::map<uint64_t, ClientTableEntry> clientTable;
-        static dsnet::Configuration configuration;
+        //static dsnet::Configuration configuration;
         static dsnet::Transport *transport;
         static std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
         static const int replicaidx = 0;
-	
-struct ClientTableEntry
-{
-        uint64_t lastReqId;
-        bool replied;
-        proto::ToClientMessage reply;
-};
 
 void
 newTimeoutandLatency()
@@ -1549,6 +1548,7 @@ rdma_server_receive()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int *myIdx = NULL;
 		    std::string transport_cmdline;
+		    static Configuration configuration
 		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
 		    memcpy(&configuration, dst+1, sizeof(dsnet::Configuration));
 		    memcpy(myIdx, dst+1+sizeof(dsnet::Configuration), sizeof(int));
