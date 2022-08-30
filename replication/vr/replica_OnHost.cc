@@ -145,7 +145,7 @@ newTimeoutandLatency()
             SendNullCommit();
         });
         resendPrepareTimeout = new Timeout(transport, 500, [this]() {
-            ResendPrepare();
+            //ResendPrepare();
         });
         closeBatchTimeout = new Timeout(transport, 300, [this]() {
             CloseBatch();
@@ -173,7 +173,7 @@ GenerateNonce() const
 bool
 AmLeader() const
 {
-    return (configuration.GetLeaderIndex(view) == this->replicaIdx);
+    return (configuration.GetLeaderIndex(view) == 0);
 }
 
 void
@@ -303,7 +303,7 @@ SendPrepareOKs(opnum_t oldLastOp)
         PrepareOKMessage *reply = m.mutable_prepare_ok();
         reply->set_view(view);
         reply->set_opnum(i);
-        reply->set_replicaidx(this->replicaIdx);
+        reply->set_replicaidx(0);
        
         RDebug("Sending PREPAREOK " FMT_VIEWSTAMP " for new uncommitted operation",
                reply->view(), reply->opnum());
@@ -342,8 +342,8 @@ RequestStateTransfer()
 
     RNotice("Requesting state transfer: " FMT_VIEWSTAMP, view, lastCommitted);
 
-    this->lastRequestStateTransferView = view;
-    this->lastRequestStateTransferOpnum = lastCommitted;
+    lastRequestStateTransferView = view;
+    lastRequestStateTransferOpnum = lastCommitted;
     memset(src, 's', 1);
     memcpy(src+1, &m, sizeof(m));
     rdma_server_send();
@@ -409,7 +409,7 @@ StartViewChange(view_t newview)
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
     svc->set_view(newview);
-    svc->set_replicaidx(this->replicaIdx);
+    svc->set_replicaidx(0);
     svc->set_lastcommitted(lastCommitted);
     memset(src, 'w', 1);
     memcpy(src+1, &m, sizeof(m));
@@ -482,7 +482,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     RDebug("Received PREPARE <" FMT_VIEW "," FMT_OPNUM "-" FMT_OPNUM ">",
            msg.view(), msg.batchstart(), msg.opnum());
 
-    if (this->status != STATUS_NORMAL) {
+    if (status != STATUS_NORMAL) {
         RDebug("Ignoring PREPARE due to abnormal status");
         return;
 	memset(src, 'a', 1);
@@ -490,7 +490,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
         process_work_completion_events(io_completion_channel, &wc, 1);
     }
 
-    if (msg.view() < this->view) {
+    if (msg.view() < view) {
         RDebug("Ignoring PREPARE due to stale view");
 	memset(src, 'a', 1);
         rdma_server_send();
@@ -498,7 +498,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
         return;
     }
 
-    if (msg.view() > this->view) {
+    if (msg.view() > view) {
         RequestStateTransfer();
         //pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
         return;
@@ -513,14 +513,14 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
 
     viewChangeTimeout->Reset();
 
-    if (msg.opnum() <= this->lastOp) {
+    if (msg.opnum() <= lastOp) {
         RDebug("Ignoring PREPARE; already prepared that operation");
         // Resend the prepareOK message
         ToReplicaMessage m;
         PrepareOKMessage *reply = m.mutable_prepare_ok();
         reply->set_view(msg.view());
         reply->set_opnum(msg.opnum());
-        reply->set_replicaidx(this->replicaIdx);
+        reply->set_replicaidx(0);
 	memset(src, 'd', 1);
 	memcpy(src+1, &m, sizeof(m));
 	rdma_server_send();
@@ -535,7 +535,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
         return;
     }
 
-    if (msg.batchstart() > this->lastOp+1) {
+    if (msg.batchstart() > lastOp+1) {
         RequestStateTransfer();
         //pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
         return;
@@ -548,7 +548,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
         if (op <= lastOp) {
             continue;
         }
-        this->lastOp++;
+        lastOp++;
         log.Append(new LogEntry(viewstamp_t(msg.view(), op), LOG_STATE_PREPARED, req));
         UpdateClientTable(req);//whether it's the last time to call update clienttable()
     }
@@ -559,7 +559,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     PrepareOKMessage *reply = m.mutable_prepare_ok();
     reply->set_view(msg.view());
     reply->set_opnum(msg.opnum());
-    reply->set_replicaidx(this->replicaIdx);
+    reply->set_replicaidx(0);
     memset(src, 'd', 1);
     memcpy(src+1, &m, sizeof(m));
     rdma_server_send();
@@ -580,7 +580,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
     struct ibv_wc wc;
     RDebug("Received COMMIT " FMT_VIEWSTAMP, msg.view(), msg.opnum());
 
-    if (this->status != STATUS_NORMAL) {
+    if (status != STATUS_NORMAL) {
         RDebug("Ignoring COMMIT due to abnormal status");
 	memset(src, 'a', 1);
         rdma_server_send();
@@ -588,7 +588,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
         return;
     }
 
-    if (msg.view() < this->view) {
+    if (msg.view() < view) {
         RDebug("Ignoring COMMIT due to stale view");
 	memset(src, 'a', 1);
         rdma_server_send();
@@ -596,7 +596,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
         return;
     }
 
-    if (msg.view() > this->view) {
+    if (msg.view() > view) {
         RequestStateTransfer();
         return;
     }
@@ -607,7 +607,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
 
     viewChangeTimeout->Reset();
 
-    if (msg.opnum() <= this->lastCommitted) {
+    if (msg.opnum() <= lastCommitted) {
         RDebug("Ignoring COMMIT; already committed that operation");
 	memset(src, 'a', 1);
         rdma_server_send();
@@ -615,7 +615,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
         return;
     }
 
-    if (msg.opnum() > this->lastOp) {
+    if (msg.opnum() > lastOp) {
         RequestStateTransfer();
         return;
     }
@@ -784,14 +784,14 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
                                                    msg)) {
         int leader = configuration.GetLeaderIndex(view);
         // Don't try to send a DoViewChange message to ourselves
-        if (leader != this->replicaIdx) {
+        if (leader != replicaIdx) {
             ToReplicaMessage m;
             DoViewChangeMessage *dvc = m.mutable_do_view_change();
             dvc->set_view(view);
             dvc->set_lastnormalview(log.LastViewstamp().view);
             dvc->set_lastop(lastOp);
             dvc->set_lastcommitted(lastCommitted);
-            dvc->set_replicaidx(this->replicaIdx);
+            dvc->set_replicaidx(replicaIdx);
 
             // Figure out how much of the log to include
             opnum_t minCommitted = std::min_element(
@@ -851,7 +851,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
         StartViewChange(msg.view());
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) == this->replicaIdx);
+    ASSERT(configuration.GetLeaderIndex(msg.view()) == replicaIdx);
 
     auto msgs = doViewChangeQuorum.AddAndCheckForQuorum(msg.view(),
                                                         msg.replicaidx(),
@@ -978,7 +978,7 @@ HandleStartView(const StartViewMessage &msg) delete remote
         return;
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) != this->replicaIdx);
+    ASSERT(configuration.GetLeaderIndex(msg.view()) != replicaIdx);
 
     if (msg.entries_size() == 0) {
         ASSERT(msg.lastcommitted() == lastCommitted);
@@ -1025,7 +1025,7 @@ HandleRecovery(const RecoveryMessage &msg) //delete remote
 
     ToReplicaMessage m;
     RecoveryResponseMessage *reply = m.mutable_recovery_response();
-    reply->set_replicaidx(this->replicaIdx);
+    reply->set_replicaidx(replicaIdx);
     reply->set_view(view);
     reply->set_nonce(msg.nonce());
     if (AmLeader()) {
@@ -1081,7 +1081,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
         }
 
         int leader = configuration.GetLeaderIndex(highestView);
-        ASSERT(leader != this->replicaIdx);
+        ASSERT(leader != replicaIdx);
         auto leaderResponse = msgs->find(leader);
         if ((leaderResponse == msgs->end()) ||
             (leaderResponse->second.view() != highestView)) {
