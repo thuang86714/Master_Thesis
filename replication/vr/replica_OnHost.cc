@@ -764,7 +764,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
         startViewChangeQuorum.AddAndCheckForQuorum(msg.view(),
                                                    msg.replicaidx(),
                                                    msg)) {
-        int leader = configuration.GetLeaderIndex(view);
+        int leader = (view % 3);
         // Don't try to send a DoViewChange message to ourselves
         if (leader != replicaidx) {
             ToReplicaMessage m;
@@ -833,7 +833,7 @@ HandleDoViewChange(const DoViewChangeMessage &msg)//delete remote
         StartViewChange(msg.view());
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) == replicaidx);
+    ASSERT((msg.view() % 3) == replicaidx);
 
     auto msgs = doViewChangeQuorum.AddAndCheckForQuorum(msg.view(),
                                                         msg.replicaidx(),
@@ -960,7 +960,7 @@ HandleStartView(const StartViewMessage &msg) //delete remote
         return;
     }
 
-    ASSERT(configuration.GetLeaderIndex(msg.view()) != replicaidx);
+    ASSERT((msg.view() % 3) != replicaidx);
 
     if (msg.entries_size() == 0) {
         ASSERT(msg.lastcommitted() == lastCommitted);
@@ -1061,7 +1061,7 @@ HandleRecoveryResponse(const RecoveryResponseMessage &msg) //delete remote
             }
         }
 
-        int leader = configuration.GetLeaderIndex(highestView);
+        int leader = (highestView % 3);
         Assert(leader != replicaidx); //L1065 try try
         auto leaderResponse = msgs->find(leader);
         if ((leaderResponse == msgs->end()) ||
