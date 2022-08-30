@@ -58,14 +58,12 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include <random>
 #include "rdma_common.h"
 #include "rdma_server.h"
-#define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
-#define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
-#define RWarning(fmt, ...) Warning("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
-#define RPanic(fmt, ...) Panic("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
+#define RDebug(fmt, ...) Debug("[%d] " fmt, 0, ##__VA_ARGS__)
+#define RNotice(fmt, ...) Notice("[%d] " fmt, 0, ##__VA_ARGS__)
+#define RWarning(fmt, ...) Warning("[%d] " fmt, 0, ##__VA_ARGS__)
+#define RPanic(fmt, ...) Panic("[%d] " fmt, 0, ##__VA_ARGS__)
 
-namespace dsnet {
-namespace vr {
-using namespace proto;
+
 //Host Machine should be RDMA server
 /* These are the RDMA resources needed to setup an RDMA connection */
 /* Event channel, where connection management (cm) related events are relayed */
@@ -84,7 +82,8 @@ using namespace proto;
 	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
 	static struct ibv_sge client_recv_sge, server_send_sge;
 	static char *src = NULL, *dst = NULL, *type = NULL;
-VRReplica::VRReplica(Configuration config, int myIdx,
+void
+VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
                      AppReplica *app)
@@ -147,8 +146,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
         recoveryTimeout->Start();
     }
 }
-
-VRReplica::~VRReplica()
+void
+delete_VRReplica()
 {
     //Latency_Dump(&requestLatency);
     //Latency_Dump(&executeAndReplyLatency);
@@ -167,7 +166,7 @@ VRReplica::~VRReplica()
 }
 
 uint64_t
-VRReplica::GenerateNonce() const
+GenerateNonce() const
 {
     std::random_device rd;
     std::mt19937_64 gen(rd());
@@ -176,13 +175,13 @@ VRReplica::GenerateNonce() const
 }
 
 bool
-VRReplica::AmLeader() const
+AmLeader() const
 {
     return (configuration.GetLeaderIndex(view) == this->replicaIdx);
 }
 
 void
-VRReplica::CommitUpTo(opnum_t upto)
+CommitUpTo(opnum_t upto)
 {   
     struct ibv_wc wc;
     int timeleft = upto - lastCommitted;
@@ -263,7 +262,7 @@ VRReplica::CommitUpTo(opnum_t upto)
 }
 
 void
-VRReplica::SendPrepareOKs(opnum_t oldLastOp)
+SendPrepareOKs(opnum_t oldLastOp)
 {
     struct ibv_wc wc;
     /* Send PREPAREOKs for new uncommitted operations */
@@ -302,7 +301,7 @@ VRReplica::SendPrepareOKs(opnum_t oldLastOp)
 
 
 void
-VRReplica::RequestStateTransfer()
+RequestStateTransfer()
 {
     struct ibv_wc wc;
     ToReplicaMessage m;
@@ -337,7 +336,7 @@ VRReplica::RequestStateTransfer()
 }
 
 void
-VRReplica::EnterView(view_t newview)
+EnterView(view_t newview)
 {
     struct ibv_wc wc;
     RNotice("Entering new view " FMT_VIEW, newview);
@@ -373,7 +372,7 @@ VRReplica::EnterView(view_t newview)
 }
 
 void
-VRReplica::StartViewChange(view_t newview)
+StartViewChange(view_t newview)
 {
     struct ibv_wc wc[2];
     RNotice("Starting view change for view " FMT_VIEW, newview);
@@ -405,7 +404,7 @@ VRReplica::StartViewChange(view_t newview)
 
 
 void
-VRReplica::UpdateClientTable(const Request &req)
+UpdateClientTable(const Request &req)
 {
     struct ibv_wc wc;
     ClientTableEntry &entry = clientTable[req.clientid()];
@@ -427,52 +426,9 @@ VRReplica::UpdateClientTable(const Request &req)
     process_work_completion_events(io_completion_channel, &wc, 1);
 }
 
-//void
-//VRReplica::CloseBatch()
-//{
-  //  struct ibv_wc wc;
-   // ASSERT(AmLeader());
-    //ASSERT(lastBatchEnd < lastOp);
-
-    //opnum_t batchStart = lastBatchEnd+1;
-
-    //RDebug("Sending batched prepare from " FMT_OPNUM
-    //       " to " FMT_OPNUM,
-    //       batchStart, lastOp);
-    // Send prepare messages 
-    /*
-    PrepareMessage *p = lastPrepare.mutable_prepare();
-    p->set_view(view);
-    p->set_opnum(lastOp);
-    p->set_batchstart(batchStart);
-    p->clear_request();
-
-    for (opnum_t i = batchStart; i <= lastOp; i++) {
-        Request *r = p->add_request();
-        const LogEntry *entry = log.Find(i);
-        ASSERT(entry != NULL);
-        ASSERT(entry->viewstamp.view == view);
-        ASSERT(entry->viewstamp.opnum == i);
-        *r = entry->request;
-    }
-    memset(src, 'y', 1);
-    memcpy(src+1, &lastPrepare, sizeof(lastPrepare));
-    rdma_server_send();
-    process_work_completion_events(io_completion_channel, &wc, 1);
-    /*
-    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
-        RWarning("Failed to send prepare message to all replicas");
-    }
-    lastBatchEnd = lastOp;
-    batchComplete = false;
-
-    resendPrepareTimeout->Reset();
-    closeBatchTimeout->Stop();
-    */
-}
     
 void
-VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
+HandleUnloggedRequest(const TransportAddress &remote,
                                  const UnloggedRequestMessage &msg)
 {
     struct ibv_wc wc;
@@ -501,7 +457,7 @@ VRReplica::HandleUnloggedRequest(const TransportAddress &remote,
 }
 
 void
-VRReplica::HandlePrepare(const TransportAddress &remote,
+HandlePrepare(const TransportAddress &remote,
                          const PrepareMessage &msg)
 {
     struct ibv_wc wc;
@@ -526,7 +482,7 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
 
     if (msg.view() > this->view) {
         RequestStateTransfer();
-        pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
+        //pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
         return;
     }
 
@@ -563,7 +519,7 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
 
     if (msg.batchstart() > this->lastOp+1) {
         RequestStateTransfer();
-        pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
+        //pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
         return;
     }
 
@@ -601,7 +557,7 @@ VRReplica::HandlePrepare(const TransportAddress &remote,
 
     
 void
-VRReplica::HandleCommit(const TransportAddress &remote,
+HandleCommit(const TransportAddress &remote,
                         const CommitMessage &msg)
 {
     struct ibv_wc wc;
@@ -655,7 +611,7 @@ VRReplica::HandleCommit(const TransportAddress &remote,
 
 
 void
-VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
+HandleRequestStateTransfer(const TransportAddress &remote,
                                       const RequestStateTransferMessage &msg)
 {
     struct ibv_wc wc;
@@ -694,7 +650,7 @@ VRReplica::HandleRequestStateTransfer(const TransportAddress &remote,
 
 //need to double check
 void
-VRReplica::HandleStateTransfer(const TransportAddress &remote,
+HandleStateTransfer(const TransportAddress &remote,
                                const StateTransferMessage &msg)
 {
     struct ibv_wc wc;
@@ -776,7 +732,7 @@ VRReplica::HandleStateTransfer(const TransportAddress &remote,
 }
 
 void
-VRReplica::HandleStartViewChange(const TransportAddress &remote,
+HandleStartViewChange(const TransportAddress &remote,
                                  const StartViewChangeMessage &msg)
 {
     struct ibv_wc wc;
@@ -848,7 +804,7 @@ VRReplica::HandleStartViewChange(const TransportAddress &remote,
 
 
 void
-VRReplica::HandleDoViewChange(const TransportAddress &remote,
+HandleDoViewChange(const TransportAddress &remote,
                               const DoViewChangeMessage &msg)
 {
     struct ibv_wc wc;
@@ -983,7 +939,7 @@ VRReplica::HandleDoViewChange(const TransportAddress &remote,
 }
 
 void
-VRReplica::HandleStartView(const TransportAddress &remote,
+HandleStartView(const TransportAddress &remote,
                            const StartViewMessage &msg)
 {
     struct ibv_wc wc;
@@ -1041,7 +997,7 @@ VRReplica::HandleStartView(const TransportAddress &remote,
 }
 
 void
-VRReplica::HandleRecovery(const TransportAddress &remote,
+HandleRecovery(const TransportAddress &remote,
                           const RecoveryMessage &msg)
 {
     struct ibv_wc wc;
@@ -1079,7 +1035,7 @@ VRReplica::HandleRecovery(const TransportAddress &remote,
 }
 
 void
-VRReplica::HandleRecoveryResponse(const TransportAddress &remote,
+HandleRecoveryResponse(const TransportAddress &remote,
                                   const RecoveryResponseMessage &msg)
 {
     struct ibv_wc wc;
