@@ -88,66 +88,38 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
 	static struct ibv_sge client_recv_sge, server_send_sge;
 	static char *src = NULL, *dst = NULL, *type = NULL;
-void
-VRReplica(Configuration config, int myIdx,
-                     bool initialize,
-                     Transport *transport, int batchSize,
-                     AppReplica *app)
-    : Replica(config, 0, myIdx, initialize, transport, app),
-      batchSize(batchSize),
-      log(false),
-      prepareOKQuorum(config.QuorumSize()-1),
-      startViewChangeQuorum(config.QuorumSize()-1),
-      doViewChangeQuorum(config.QuorumSize()-1),
-      recoveryResponseQuorum(config.QuorumSize())
-{
-    this->status = STATUS_NORMAL;
-    this->view = 0;
-    this->lastOp = 0;
-    this->lastCommitted = 0;
-    this->lastRequestStateTransferView = 0;
-    this->lastRequestStateTransferOpnum = 0;
-    lastBatchEnd = 0;
-    batchComplete = true;
+        static Timeout *viewChangeTimeout = NULL, 
+                       *nullCommitTimeout = NULL, 
+                       *stateTransferTimeout = NULL, 
+                       *resendPrepareTimeout = NULL, 
+                       *closeBatchTimeout= NULL,
+                       *recoveryTimeout= NULL;
+        static view_t view, lastRequestStateTransferView;
+        static opnum_t lastCommitted, lastOp, lastRequestStateTransferOpnum, lastBatchEnd;
+        static uint64_t recoveryNonce;
+        static bool batchComplete;
+        static proto::ToReplicaMessage lastPrepare;
+        static Log log;
+        static Latency_t requestLatency, executeAndReplyLatency;
+        static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum;
+        static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
+        static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
+        static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
+        static std::map<uint64_t, ClientTableEntry> clientTable;
+       
+struct ClientTableEntry
+    {
+        uint64_t lastReqId;
+        bool replied;
+        proto::ToClientMessage reply;
+    };
 
-    if (batchSize > 1) {
-        Notice("Batching enabled; batch size %d", batchSize);
-    }
-
-    this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
-            RWarning("Have not heard from leader; starting view change");
-            StartViewChange(view+1);
-        });
-    this->nullCommitTimeout = new Timeout(transport, 1000, [this]() {
-            SendNullCommit();
-        });
-    this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
-            this->lastRequestStateTransferView = 0;
-            this->lastRequestStateTransferOpnum = 0;
-        });
-    this->stateTransferTimeout->Start();
-    this->resendPrepareTimeout = new Timeout(transport, 500, [this]() {
-            ResendPrepare();
-        });
-    this->closeBatchTimeout = new Timeout(transport, 300, [this]() {
-            CloseBatch();
-        });
-    this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
-            SendRecoveryMessages();
-        });
-
-    _Latency_Init(&requestLatency, "request");
-    _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 
     if (initialize) {
-        if (AmLeader()) {
-            nullCommitTimeout->Start();
-        } else {
-            viewChangeTimeout->Start();
-        }
+        
     } else {
-        this->status = STATUS_RECOVERING;
-        this->recoveryNonce = GenerateNonce();
+        status = STATUS_RECOVERING;
+        recoveryNonce = GenerateNonce();
         SendRecoveryMessages();
         recoveryTimeout->Start();
     }
@@ -1763,11 +1735,39 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	dsnet::vr::rdma_server_receive();
+	viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
+            RWarning("Have not heard from leader; starting view change");
+            StartViewChange(view+1);
+        });
+        stateTransferTimeout = new Timeout(transport, 1000, [this]() {
+            this->lastRequestStateTransferView = 0;
+            this->lastRequestStateTransferOpnum = 0;
+        });
+        stateTransferTimeout->Start();
+        recoveryTimeout = new Timeout(transport, 5000, [this]() {
+            SendRecoveryMessages();
+        });
+        nullCommitTimeout = new Timeout(transport, 1000, [this]() {
+            SendNullCommit();
+        });
+        resendPrepareTimeout = new Timeout(transport, 500, [this]() {
+            ResendPrepare();
+        });
+        closeBatchTimeout = new Timeout(transport, 300, [this]() {
+            CloseBatch();
+        });
+    
+        _Latency_Init(&requestLatency, "request");
+        _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 	
-	VR = new dsnet::vr::VRReplica(config, myIdx, true, transportptr, 1, nullApp);
+	if (AmLeader()) {
+            nullCommitTimeout->Start();
+        } else {
+            viewChangeTimeout->Start();
+        }
+	
 	while(true){
-		VR.rdma_server_receive();
+	    rdma_server_receive();
 	}
 	return 0;
 }
