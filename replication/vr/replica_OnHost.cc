@@ -773,7 +773,7 @@ HandleStartViewChange(const StartViewChangeMessage &msg) //delete remote
             dvc->set_lastnormalview(log.LastViewstamp().view);
             dvc->set_lastop(lastOp);
             dvc->set_lastcommitted(lastCommitted);
-            dvc->set_replicaidx(replicaIdx);
+            dvc->set_replicaidx(replicaidx);
 
             // Figure out how much of the log to include
             opnum_t minCommitted = std::min_element(
@@ -1363,10 +1363,10 @@ send_server_metadata_to_client()
 	* do RDMA READs and WRITEs. */
        server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
 		       src, sizeof(src),
-		       IBV_ACCESS_LOCAL_WRITE) /* access permissions */);
+		       IBV_ACCESS_LOCAL_WRITE); /* access permissions */
        server_dst_mr = rdma_buffer_register(pd /* which protection domain */, 
 		       dst, sizeof(dst),
-		       IBV_ACCESS_LOCAL_WRITE)
+		       IBV_ACCESS_LOCAL_WRITE);
        if(!server_src_mr){
 	       rdma_error("Server failed to create a buffer \n");
 	       /* we assume that it is due to out of memory error */
