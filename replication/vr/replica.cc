@@ -345,7 +345,8 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 {
     static ToReplicaMessage replica_msg;
     static PBMessage m(replica_msg);
-
+    ToReplicaMessage r;
+    ToClientMessage c;
     m.Parse(buf, size);
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:{
@@ -360,30 +361,32 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //HandleUnloggedRequest(remote, replica_msg.unlogged_request());
 	    //send remote
 	    memset(src, 'b', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    memcpy(src+1+sizeof(remote), &replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
+	    memcpy(src+1, &replica_msg.unlogged_request(), sizeof(replica_msg.unlogged_request()));
 	    rdma_client_send();
 	    rdma_client_receive();
+	    memcpy(&c, dst+1, sizeof(ToClientMessage));
+	    if (!(transport->SendMessage(this, remote, PBMessage(c))))
+            Warning("Failed to send reply message");
         }break;
         case ToReplicaMessage::MsgCase::kPrepare:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandlePrepare(remote, replica_msg.prepare());
 	    //send remote
+	    ifrequeststatetransfer = true;
 	    memset(src, 'c', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //prepare
-	    memcpy(src+1+sizeof(remote), &replica_msg.prepare(), sizeof(replica_msg.prepare()));
+	    memcpy(src+1, &replica_msg.prepare(), sizeof(replica_msg.prepare()));
 	    rdma_client_send();
-	    rdma_client_receive();
+	    if (!ifrequeststatetransfer) {
+            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
+            }
+	    ifrequeststatetransfer = true;
 	}break;
         case ToReplicaMessage::MsgCase::kCommit:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleCommit(remote, replica_msg.commit());
 	    //send remote
 	    memset(src, 'd', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //commit
-	    memcpy(src+1+sizeof(remote), &replica_msg.commit(), sizeof(replica_msg.commit()));
+	    memcpy(src+1, &replica_msg.commit(), sizeof(replica_msg.commit()));
 	    rdma_client_send();
 	    //process_work_completion_events(io_completion_channel, wc, 1);
 	    rdma_client_receive();
@@ -393,9 +396,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
 	    //send remote
 	    memset(src, 'e', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //req state transfer
-	    memcpy(src+1+sizeof(remote), &replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
+	    memcpy(src+1, &replica_msg.request_state_transfer(), sizeof(replica_msg.request_state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;	    //all lines below have not been scrutinized
@@ -404,9 +405,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //HandleStateTransfer(remote, replica_msg.state_transfer());
 	    //send remote
 	    memset(src, 'f', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //state transfer
-	    memcpy(src+1+sizeof(remote), &replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
+	    memcpy(src+1, &replica_msg.state_transfer(), sizeof(replica_msg.state_transfer()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;
@@ -414,9 +413,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
             //HandleStartViewChange(remote, replica_msg.start_view_change());
 	    memset(src, 'g', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //start view change
-	    memcpy(src+1+sizeof(remote), &replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
+	    memcpy(src+1, &replica_msg.start_view_change(), sizeof(replica_msg.start_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;
@@ -424,9 +421,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleDoViewChange(remote, replica_msg.do_view_change());
 	    memset(src, 'h', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //do view change
-	    memcpy(src+1+sizeof(remote), &replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
+	    memcpy(src+1, &replica_msg.do_view_change(), sizeof(replica_msg.do_view_change()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;
@@ -434,9 +429,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartView(remote, replica_msg.start_view());
 	    memset(src, 'i', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //Start view
-	    memcpy(src+1+sizeof(remote), &replica_msg.start_view(), sizeof(replica_msg.start_view()));
+	    memcpy(src+1, &replica_msg.start_view(), sizeof(replica_msg.start_view()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;
@@ -444,22 +437,24 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecovery(remote, replica_msg.recovery());
 	    memset(src, 'j', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //recovery
-	    memcpy(src+1+sizeof(remote), &replica_msg.recovery(), sizeof(replica_msg.recovery()));
+	    memcpy(src+1, &replica_msg.recovery(), sizeof(replica_msg.recovery()));
 	    rdma_client_send();
 	    rdma_client_receive();
+	    memcpy(&r, dst+1, sizeof(ToReplicaMessage));
+	    if (!(transport->SendMessage(this, remote, PBMessage(r)))) {
+                RWarning("Failed to send recovery response");
+            }
         }break;
+		    
         case ToReplicaMessage::MsgCase::kRecoveryResponse:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecoveryResponse(remote, replica_msg.recovery_response());
 	    memset(src, 'k', 1);
-	    memcpy(src+1, &remote, sizeof(remote));
-	    //recovery response
 	    memcpy(src+1, &replica_msg.recovery_response(), sizeof(replica_msg.recovery_response()));
 	    rdma_client_send();
 	    rdma_client_receive();
         }break;
+		    
         default:
             //the line below should not need further change
             RPanic("Received unexpected message type %u",replica_msg.msg_case());
@@ -742,7 +737,6 @@ VRReplica::rdma_client_receive()
 	debug("Client side receive is complete \n");
 	ToReplicaMessage replica_msg;
 	ToClientMessage client_msg;
-	TransportAddress remote;
 	memcpy(type, dst, 1);
 	switch(*type)
 	{
@@ -750,6 +744,7 @@ VRReplica::rdma_client_receive()
 		{//ack; for situation that same function may have different returns
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
+		    
 		}break;
 			
 		case 'b': 
@@ -766,10 +761,7 @@ VRReplica::rdma_client_receive()
 		{//HandleUnlogged--ToClientMessage m
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
-	   	    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
-	            if (!(transport->SendMessage(this, remote, PBMessage(replica_msg))))
-           	    Warning("Failed to send reply message");
+		    //rest logic handled by case ToReplicaMessage::MsgCase::kUnloggedRequest:{
 		}break;
 			
 		case 'd': 
@@ -787,7 +779,8 @@ VRReplica::rdma_client_receive()
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
 	    	    memcpy(&lastOp, dst+1, sizeof(lastOp));
-		}break;
+		}rdma_client_receive();
+		break;
 			
 		case 'f': 
 		{//HandleStartViewChange--ToReplicaMessage m;
@@ -822,11 +815,11 @@ VRReplica::rdma_client_receive()
 		{//HandleRecovery--ToReplicaMessage m 
 		    struct ibv_wc wc[2];
 		    process_work_completion_events(io_completion_channel, wc, 2);
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
-		    if (!(transport->SendMessage(this, remote, PBMessage(replica_msg)))) {
-                    RWarning("Failed to send recovery response");
-                    }
+		    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+		    //memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
+		    //if (!(transport->SendMessage(this, remote, PBMessage(replica_msg)))) {
+                    //RWarning("Failed to send recovery response");
+                    //}
 		}break;
 			
 		case 'j': 
@@ -867,9 +860,10 @@ VRReplica::rdma_client_receive()
 		break;
 			
 	        case 'p': 
-		{//Not Defined
+		{//
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    
 		}break;
 			
 		case 'q': 
@@ -880,7 +874,15 @@ VRReplica::rdma_client_receive()
 		    if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(replica_msg)))) {
                     RWarning("Failed to send PrepareOK message to leader");
                     }
-		}break;
+		    std::list<std::pair<TransportAddress *, PrepareMessage> >pending = pendingPrepares;
+    		    pendingPrepares.clear();
+    		    for (auto & msgpair : pending) {
+        	    	RDebug("Processing pending prepare message");
+          	    	ReceiveMessage(*msgpair.first, msgpair.second);
+        	    	delete msgpair.first;
+    		    }
+		}
+		break;
 			
 		case 'r': 
 		{//Not defined
@@ -892,6 +894,7 @@ VRReplica::rdma_client_receive()
 		{//RequestStateTransfer()->transport
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    ifrequeststatetransfer = false;
 		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
         	    RWarning("Failed to send RequestStateTransfer message to all replicas");
