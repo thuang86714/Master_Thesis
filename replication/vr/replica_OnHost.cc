@@ -102,7 +102,7 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
         static bool batchComplete;
         static proto::ToReplicaMessage lastPrepare;
         static Log log(false);
-        static sting status = "STATUS_NORMAL";
+        static ReplicaStatus status = STATUS_NORMAL;
         static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum;
         static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
         static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
