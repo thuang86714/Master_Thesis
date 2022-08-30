@@ -46,6 +46,8 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 */
 #include "common/replica.h"
 #include "rdma_common.h"
+#include "rdma_server.h"
+#include "replica_OnHost.h"
 #include "common/log.h"
 #include "common/quorumset.h"
 #include "replication/vr/vr-proto.pb.h"
@@ -108,7 +110,8 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
         static std::map<uint64_t, ClientTableEntry> clientTable;
         static dsnet::Configuration configuration;
         static dsnet::Transport *transport;
-       
+        static std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
+
 struct ClientTableEntry
 {
         uint64_t lastReqId;
