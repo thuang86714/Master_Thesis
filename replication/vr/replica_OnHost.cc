@@ -115,6 +115,7 @@ using namespace proto;
         static dsnet::Transport *transport;
         static std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
         static const int replicaidx = 0;
+	
 struct ClientTableEntry
 {
         uint64_t lastReqId;
@@ -1546,11 +1547,10 @@ rdma_server_receive()
 	switch(*type){
 		case 'a':{//config+myIdx+initialize+transport+nullApp
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    dsnet::Configuration *config = NULL;
 		    int *myIdx = NULL;
 		    std::string transport_cmdline;
 		    dsnet::Transport *transportptr = new dsnet::DPDKTransport(0, 0, 1, 0, transport_cmdline);
-		    memcpy(config, dst+1, sizeof(dsnet::Configuration));
+		    memcpy(&configiguration, dst+1, sizeof(dsnet::Configuration));
 		    memcpy(myIdx, dst+1+sizeof(*config), sizeof(int));
 		    break;
 		}
