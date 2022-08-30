@@ -1377,14 +1377,10 @@ send_server_metadata_to_client()
 	* do RDMA READs and WRITEs. */
        server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
 		       src, sizeof(src), /* what size to allocate */, 
-		       (IBV_ACCESS_LOCAL_WRITE|
-		       IBV_ACCESS_REMOTE_READ|
-		       IBV_ACCESS_REMOTE_WRITE) /* access permissions */);
+		       IBV_ACCESS_LOCAL_WRITE) /* access permissions */);
 	server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
 		       dst, sizeof(dst), /* what size to allocate */, 
-		       (IBV_ACCESS_LOCAL_WRITE|
-		       IBV_ACCESS_REMOTE_READ|
-		       IBV_ACCESS_REMOTE_WRITE)
+		       IBV_ACCESS_LOCAL_WRITE)
        if(!server_src_mr){
 	       rdma_error("Server failed to create a buffer \n");
 	       /* we assume that it is due to out of memory error */
@@ -1574,61 +1570,61 @@ rdma_server_receive()
 		}
 		case 'b':{//remote+Unlogged_request
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.unlogged_request(), dst+1, sizeof(replica_msg.unlogged_request()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleUnloggedRequest(replica_msg.unlogged_request());
 		    break;
 		}
 		case 'c':{//remote+Prepare
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.prepare(), dst+1, sizeof(replica_msg.prepare()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandlePrepare(replica_msg.prepare());
 		    break;
 		}
 		case 'd':{//remote+Commit
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.commit(), dst+1, sizeof(replica_msg.commit()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleCommit(replica_msg.commit());
 		    break;
 		}
 		case 'e':{//remote+RequestStateTransfer
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.request_state_transfer(), dst+1, sizeof(replica_msg.request_state_transfer()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleRequestStateTransfer(replica_msg.request_state_transfer());
 		    break;
 		}
 		case 'f':{//remote+StateTransfer
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.state_transfer(), dst+1, sizeof(replica_msg.state_transfer()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg);
 		    HandleStateTransfer(replica_msg.state_transfer());
 		    break;
 		}
 		case 'g':{//remote+StartViewChange
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.start_view_change(), dst+1, sizeof(replica_msg.start_view_change()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleStartViewChange(replica_msg.start_view_change());
 		    break;
 		}
 		case 'h':{//remote+DoViewChange
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&(replica_msg.do_view_change(), dst+1, sizeof((replica_msg.do_view_change()));
+		    memcpy(&(replica_msg, dst+1, sizeof((replica_msg));
 		    HandleDoViewChange(replica_msg.do_view_change());
 		    break;
 		}
 		case 'i':{//remote+StartView
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.start_view(), dst+1, sizeof(replica_msg.start_view()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleStartView(replica_msg.start_view());
 		    break;
 		}
 		case 'j':{//remote+Recovery 
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.recovery(), dst+1, sizeof(replica_msg.recovery()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleRecovery(replica_msg.recovery());
 		    break;
 		}
 		case 'k':{//remote+RecoveryResponse 
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg.recovery_response(), dst+1, sizeof(replica_msg.recovery_response()));
+		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    HandleRecoveryResponse(replica_msg.recovery_response());
 		    break;
 		}
