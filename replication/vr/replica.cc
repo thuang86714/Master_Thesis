@@ -844,6 +844,7 @@ VRReplica::rdma_client_receive()
 		{//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
 		    Latency_End(&executeAndReplyLatency);
 		    struct ibv_wc wc;
+		    lastCommitted++;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int n;
 		    memcpy(&n, dst+1, sizeof(int));
@@ -857,6 +858,7 @@ VRReplica::rdma_client_receive()
 		{//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
 		    Latency_End(&executeAndReplyLatency);
 		    struct ibv_wc wc;
+		    lastCommitted++;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		}rdma_client_receive();
 		break;
