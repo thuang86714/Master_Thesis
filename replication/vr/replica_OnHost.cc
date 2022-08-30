@@ -1743,10 +1743,10 @@ int main(int argc, char **argv)
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
 	char* const RDMA_CLIENT_ADDR = "10.1.0.7";
-	src = dst = type = NULL;
-        src = (char *)calloc(1073741824,1); 
-        dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
-        type = (char *)calloc(sizeof(char),1);
+	dsnet::vr::src = dsnet::vr::dst = dsnet::vr::type = NULL;
+        dsnet::vr::src = (char *)calloc(1073741824,1); 
+        dsnet::vr::dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+        dsnet::vr::type = (char *)calloc(sizeof(char),1);
 	ret = dsnet::vr::get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
 	if (ret) {
 		rdma_error("Invalid IP \n");
@@ -1773,10 +1773,10 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	newTimeoutandLatency();
+	dsnet::vr::newTimeoutandLatency();
 	
 	while(true){
-	    rdma_server_receive();
+	    dsnet::vr::rdma_server_receive();
 	}
 	return 0;
 }
