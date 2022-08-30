@@ -171,7 +171,7 @@ GenerateNonce()
 bool
 AmLeader() 
 {
-    return (configuration.GetLeaderIndex(view) == 0);
+    return ((view % 3) == 0);
 }
 
 void
@@ -648,8 +648,7 @@ HandleRequestStateTransfer(const RequestStateTransferMessage &msg) //delete remo
 
 //need to double check
 void
-HandleStateTransfer(const TransportAddress &remote,
-                               const StateTransferMessage &msg)
+HandleStateTransfer(const StateTransferMessage &msg)
 {
     struct ibv_wc wc;
     RDebug("Received STATETRANSFER " FMT_VIEWSTAMP, msg.view(), msg.opnum());
@@ -1717,7 +1716,6 @@ rdma_server_receive()
 int main(int argc, char **argv) 
 {
 	int ret;
-	std::string transport_cmdline;
 	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
