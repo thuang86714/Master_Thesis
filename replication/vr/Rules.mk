@@ -1,7 +1,7 @@
 d := $(dir $(lastword $(MAKEFILE_LIST)))
 
 SRCS += $(addprefix $(d), \
-	replica.cc replica_OnHost.cc client.cc rdma_common.cc rdma_client.cc rdma_server.cc)
+	replica.cc replica_OnHost.cc client.cc rdma_common.cc rdma_client.cc )
 
 PROTOS += $(addprefix $(d), \
 	    vr-proto.proto)
