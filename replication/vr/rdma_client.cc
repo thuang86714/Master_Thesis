@@ -51,10 +51,7 @@ namespace vr {
     /* Source and Destination buffers, where RDMA operations source and sink */
     static char *src = NULL, *dst = NULL, *type = NULL;
 	
-static int check_src_dst() 
-{
-	return memcmp((void*) src, (void*) dst, strlen(src));
-}
+
 
 /* This function prepares client side connection resources for an RDMA connection */
 int 
@@ -273,9 +270,7 @@ client_xchange_metadata_with_server()
 	client_src_mr = rdma_buffer_register(pd,
 			src,
 			sizeof(src), //orginal code was strlen()
-			(IBV_ACCESS_LOCAL_WRITE|
-			 IBV_ACCESS_REMOTE_READ|
-			 IBV_ACCESS_REMOTE_WRITE));
+			IBV_ACCESS_REMOTE_WRITE);
 	if(!client_src_mr){
 		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
 		return ret;
