@@ -1348,3 +1348,4 @@ VRReplica::client_disconnect_and_clean()
 }
 }
 }
+}
