@@ -70,7 +70,7 @@ private:
     opnum_t lastBatchEnd;
     bool batchComplete;
     bool Amleader;
-
+    ifrequeststatetransfer;
     Log log;
     std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
     struct ClientTableEntry
