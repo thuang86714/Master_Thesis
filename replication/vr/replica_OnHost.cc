@@ -112,10 +112,10 @@ struct ClientTableEntry
         static proto::ToReplicaMessage lastPrepare;
         static Log log(false);
         static ReplicaStatus status = STATUS_NORMAL;
-        static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum; //trytry
-        static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum;
-        static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum;
-        static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum;
+        static QuorumSet<viewstamp_t, proto::PrepareOKMessage> prepareOKQuorum(1); //trytry
+        static QuorumSet<view_t, proto::StartViewChangeMessage> startViewChangeQuorum(1);
+        static QuorumSet<view_t, proto::DoViewChangeMessage> doViewChangeQuorum(1);
+        static QuorumSet<uint64_t, proto::RecoveryResponseMessage> recoveryResponseQuorum(2);
         static std::map<uint64_t, ClientTableEntry> clientTable;
         //static dsnet::Configuration configuration;
         static dsnet::Transport *transportptr;
