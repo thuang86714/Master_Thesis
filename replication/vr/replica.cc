@@ -379,7 +379,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    rdma_client_send();
 	    rdma_client_receive();
 	    if (!ifrequeststatetransfer) {
-            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg);
+            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg.prepare()));
             }
 	    ifrequeststatetransfer = true;
 	}break;
