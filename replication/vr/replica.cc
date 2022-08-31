@@ -424,7 +424,7 @@ VRReplica::client_xchange_metadata_with_server()
 {
 	struct ibv_wc wc[2];
 	int ret = -1;
-	/*
+	
 	client_src_mr = rdma_buffer_register(pd,
 			src,
 			sizeof(*src),
@@ -433,7 +433,7 @@ VRReplica::client_xchange_metadata_with_server()
 		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
 		return ret;
 	}
-	*/
+	
 	/* we prepare metadata for the first buffer */
 	client_metadata_attr.address = (uint64_t) client_src_mr->addr; 
 	client_metadata_attr.length = client_src_mr->length; 
