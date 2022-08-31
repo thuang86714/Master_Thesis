@@ -59,9 +59,21 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include <random>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <getopt.h>
+
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
+#include <rdma/rdma_cma.h>
+#include <infiniband/verbs.h>
 //the next two lib are for RDMA
 #include "rdma_common.h"
-#include "rdma_client.h"
 
 #define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
 #define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
@@ -73,22 +85,22 @@ namespace vr {
 
 using namespace proto;
     static struct rdma_event_channel *cm_event_channel = NULL;
-    static struct rdma_cm_id *cm_client_id = NULL;
-    static struct ibv_pd *pd = NULL;
-    static struct ibv_comp_channel *io_completion_channel = NULL;
-    static struct ibv_qp *client_qp;
-    /* These are memory buffers related resources */
-    static struct ibv_mr *client_metadata_mr = NULL, 
-		         *client_src_mr = NULL, 
-		         *client_dst_mr = NULL, 
-		         *server_metadata_mr = NULL;
-    static struct ibv_qp_init_attr qp_init_attr;
-    static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
-    static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
-    static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
-    static struct ibv_sge client_send_sge, server_recv_sge;
-    /* Source and Destination buffers, where RDMA operations source and sink */
-    static char *src = NULL, *dst = NULL, *type = NULL;
+static struct rdma_cm_id *cm_client_id = NULL;
+static struct ibv_pd *pd = NULL;
+static struct ibv_comp_channel *io_completion_channel = NULL;
+static struct ibv_cq *client_cq = NULL;
+static struct ibv_qp_init_attr qp_init_attr;
+static struct ibv_qp *client_qp;
+/* These are memory buffers related resources */
+static struct ibv_mr *client_metadata_mr = NULL, 
+		     *client_src_mr = NULL, 
+		     *client_dst_mr = NULL, 
+		     *server_metadata_mr = NULL;
+static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
+static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
+static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
+static struct ibv_sge client_send_sge, server_recv_sge;
+static char *src = NULL, *dst = NULL, *type = NULL;
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
