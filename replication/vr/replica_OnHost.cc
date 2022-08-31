@@ -480,7 +480,10 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     ASSERT_EQ(msg.opnum()-msg.batchstart()+1, (unsigned int)msg.request_size());
 
     viewChangeTimeout->Reset();
-
+    memset(src, 'p', 1);
+    dsnet::vr::rdma_server_send();
+    process_work_completion_events(io_completion_channel, &wc, 1);
+    
     if (msg.opnum() <= lastOp) {
         RDebug("Ignoring PREPARE; already prepared that operation");
         // Resend the prepareOK message
