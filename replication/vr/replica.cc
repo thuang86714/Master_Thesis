@@ -83,8 +83,9 @@ struct sockaddr_in {
     static struct rdma_cm_id *cm_client_id = NULL;
     static struct ibv_pd *pd = NULL;
     static struct ibv_comp_channel *io_completion_channel = NULL;
-    static struct ibv_qp *client_qp=NULL;
+    static struct ibv_qp *client_cq=NULL;
     static struct ibv_qp_init_attr qp_init_attr;
+    static struct ibv_qp *client_qp;
     /* These are memory buffers related resources */
     static struct ibv_mr *client_src_mr = NULL,
                          *client_dst_mr = NULL,
@@ -214,7 +215,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 }
 
 int 
-VRReplica::client_prepare_connection(struct sockaddr_in *s_addr)
+VRReplica::client_prepare_connection(dsnet::vr::sockaddr_in *s_addr)
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
