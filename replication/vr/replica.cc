@@ -46,6 +46,8 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 */
 //TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based,
 #include "common/replica.h"
+#include "rdma_common.h"
+#include "rdma_client.h"
 #include "replication/vr/replica.h"
 
 #include "lib/assert.h"
@@ -60,8 +62,7 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include <string.h>
 #include <stdio.h>
 //the next two lib are for RDMA
-#include "rdma_common.h"
-#include "rdma_client.h"
+
 
 #define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
 #define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
