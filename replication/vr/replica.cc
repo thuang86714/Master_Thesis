@@ -598,6 +598,22 @@ VRReplica::HandleRequest(const TransportAddress &remote,
     }
 }
 
+void
+VRReplica::HandlePrepare(const TransportAddress &remote,
+                           const PrepareMessage &msg)
+{
+	ToReplicaMessage replica_msg;
+	ifrequeststatetransfer = true;
+	memset(src, 'c', 1);
+	memcpy(src+1, &replica_msg, sizeof(replica_msg));
+	rdma_client_send();
+        rdma_client_receive();
+        if (!ifrequeststatetransfer) {
+            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
+        }
+	ifrequeststatetransfer = true;
+}
+	
 //this function might still change the state that N10 might need to know
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
@@ -892,7 +908,7 @@ VRReplica::rdma_client_receive()
     		    pendingPrepares.clear();
     		    for (auto & msgpair : pending) {
         	    	RDebug("Processing pending prepare message");
-          	    	ReceiveMessage(*msgpair.first, msgpair.second);
+          	    	HandlePrepare(*msgpair.first, msgpair.second);
         	    	delete msgpair.first;
     		    }
 		}
@@ -908,7 +924,7 @@ VRReplica::rdma_client_receive()
 		{//RequestStateTransfer()->transport
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    ifrequeststatetransfer = false;
+		    dsnet::vr::ifrequeststatetransfer = false;
 		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
         	    RWarning("Failed to send RequestStateTransfer message to all replicas");
