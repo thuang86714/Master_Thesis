@@ -120,7 +120,7 @@ void
 Latencyinit()
 {
 	std::string transport_cmdline;
-	transportptr = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
+	
         _Latency_Init(&requestLatency, "request");
         _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 	
