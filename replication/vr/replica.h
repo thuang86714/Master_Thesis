@@ -72,6 +72,7 @@ private:
     bool Amleader;
     bool ifrequeststatetransfer;
     Log log;
+    LogEntry* newlogentry;
     std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
     struct ClientTableEntry
     {
