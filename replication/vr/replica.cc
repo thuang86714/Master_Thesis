@@ -150,7 +150,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
-    struct ibv_wc wc[2];
+    struct ibv_wc wc[4];
     bzero(src, sizeof(src));
     memset(src, 'a', 1);
     memcpy(src+1, &config, sizeof(config));
@@ -160,21 +160,19 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     memcpy(src+1+sizeof(config)+sizeof(myIdx), transport, sizeof(*transport)); //dereference transport
     rdma_client_send();
     rdma_client_receive();
-    process_work_completion_events(io_completion_channel, wc, 2);
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
 	    struct ibv_wc wc;
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
 	    memset(src, 'm', 1);
 	    rdma_client_send();
-            process_work_completion_events(io_completion_channel, &wc, 1);
         });
     this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
             this->lastRequestStateTransferView = 0;
             this->lastRequestStateTransferOpnum = 0;
 	    memset(src, 'n', 1);
 	    rdma_client_send();
-            process_work_completion_events(io_completion_channel, wc, 1);
+            process_work_completion_events(io_completion_channel, wc, 4);
         });
     this->stateTransferTimeout->Start();
     
@@ -385,7 +383,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    rdma_client_send();
 	    rdma_client_receive();
 	    if (!ifrequeststatetransfer) {
-            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
+            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg));
             }
 	    ifrequeststatetransfer = true;
 	}break;
@@ -924,7 +922,7 @@ VRReplica::rdma_client_receive()
 		{//RequestStateTransfer()->transport
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    dsnet::vr::ifrequeststatetransfer = false;
+		    ifrequeststatetransfer = false;
 		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
 		    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
         	    RWarning("Failed to send RequestStateTransfer message to all replicas");
