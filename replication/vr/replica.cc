@@ -1015,7 +1015,7 @@ VRReplica::rdma_client_receive()
 	
 } 
 int 
-client_prepare_connection(struct sockaddr_in *s_addr)
+VRReplica::client_prepare_connection(struct sockaddr_in *s_addr)
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
@@ -1154,7 +1154,7 @@ client_prepare_connection(struct sockaddr_in *s_addr)
 }				  
 		  
 int 
-client_pre_post_recv_buffer()
+VRReplica::client_pre_post_recv_buffer()
 {
 	int ret = -1;
 	server_metadata_mr = rdma_buffer_register(pd,
@@ -1185,7 +1185,7 @@ client_pre_post_recv_buffer()
 		  
 /* Connects to the RDMA server */
 int 
-client_connect_to_server() 
+VRReplica::client_connect_to_server() 
 {
 	struct rdma_conn_param conn_param;
 	struct rdma_cm_event *cm_event = NULL;
@@ -1223,7 +1223,7 @@ client_connect_to_server()
  * purposes
  */
 int 
-client_xchange_metadata_with_server()
+VRReplica::client_xchange_metadata_with_server()
 {
 	struct ibv_wc wc[2];
 	int ret = -1;
@@ -1283,7 +1283,7 @@ client_xchange_metadata_with_server()
 }
 
 int 
-client_disconnect_and_clean()
+VRReplica::client_disconnect_and_clean()
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
