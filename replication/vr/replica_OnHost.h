@@ -15,7 +15,7 @@
 namespace dsnet {
 namespace vr {
   
-void newTimeoutandLatency();
+void Latencyinit();
   
 uint64_t GenerateNonce() ;
   
