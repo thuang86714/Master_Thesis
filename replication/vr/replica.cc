@@ -47,7 +47,6 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 //TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based,
 #include "common/replica.h"
 #include "rdma_common.h"
-#include "rdma_client.h"
 #include "replication/vr/replica.h"
 
 #include "lib/assert.h"
