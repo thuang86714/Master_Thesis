@@ -145,13 +145,13 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     client_xchange_metadata_with_server();
     client_dst_mr = rdma_buffer_register(pd,
 		dst,
-		sizeof(src),
+		sizeof(*src),
 		IBV_ACCESS_LOCAL_WRITE);
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
     struct ibv_wc wc[2];
-    bzero(src, sizeof(src));
+    bzero(src, sizeof(*src));
     
      this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
