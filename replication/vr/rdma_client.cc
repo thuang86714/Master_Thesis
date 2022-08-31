@@ -41,15 +41,13 @@ namespace vr {
     static struct ibv_qp *client_qp;
     /* These are memory buffers related resources */
     static struct ibv_mr *client_metadata_mr = NULL, 
-		         *client_src_mr = NULL, 
-		         *client_dst_mr = NULL, 
 		         *server_metadata_mr = NULL;
     static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
     static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
     static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
     static struct ibv_sge client_send_sge, server_recv_sge;
     /* Source and Destination buffers, where RDMA operations source and sink */
-    static char *src = NULL, *dst = NULL, *type = NULL;
+    
 	
 
 
@@ -267,6 +265,7 @@ client_xchange_metadata_with_server()
 {
 	struct ibv_wc wc[2];
 	int ret = -1;
+	/*
 	client_src_mr = rdma_buffer_register(pd,
 			src,
 			sizeof(*src),
@@ -275,6 +274,7 @@ client_xchange_metadata_with_server()
 		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
 		return ret;
 	}
+	*/
 	/* we prepare metadata for the first buffer */
 	client_metadata_attr.address = (uint64_t) client_src_mr->addr; 
 	client_metadata_attr.length = client_src_mr->length; 
