@@ -160,7 +160,6 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     rdma_client_send();
     rdma_client_receive();
     process_work_completion_events(io_completion_channel, wc, 2);
-    /* Move these 2 Timeout to N10
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
@@ -170,7 +169,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
             this->lastRequestStateTransferOpnum = 0;
         });
     this->stateTransferTimeout->Start();
-    */
+    
     //the rest 3 Timeout are actually also part of logic on N10, but I will solve it by RDMA communication.
     this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
             SendRecoveryMessages();
