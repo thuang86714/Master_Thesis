@@ -115,7 +115,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //bellow are for RDMA client
     // Hard-coded the destination address
     char* const RDMA_SERVER_ADDR = "10.1.0.4";
-    struct sockaddr_in server_sockaddr;
+    //struct sockaddr_in server_sockaddr;
     bzero(&server_sockaddr, sizeof server_sockaddr);
     server_sockaddr.sin_family = AF_INET;
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
