@@ -1695,8 +1695,8 @@ int main(int argc, char **argv)
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
 	char* RDMA_CLIENT_ADDR = "10.1.0.4";
 	dsnet::vr::src = dsnet::vr::dst = dsnet::vr::type = NULL;
-        dsnet::vr::src = (char *)calloc(1073741824,1); 
-        dsnet::vr::dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+        dsnet::vr::src = (char *)calloc(1000000,1); 
+        dsnet::vr::dst = (char *)calloc(1000000,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
         dsnet::vr::type = (char *)calloc(sizeof(char),1);
 	ret = dsnet::vr::get_addr(RDMA_CLIENT_ADDR, (struct sockaddr*) &server_sockaddr);
 	if (ret) {
