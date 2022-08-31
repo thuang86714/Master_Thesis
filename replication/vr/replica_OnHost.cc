@@ -198,7 +198,7 @@ CommitUpTo(opnum_t upto)
         ReplyMessage *reply = m.mutable_reply();
         UpcallArg arg;
         arg.isLeader = AmLeader();
-        Execute(lastCommitted, entry->request, *reply, &arg);
+        //Execute(lastCommitted, entry->request, *reply, &arg);
 
         reply->set_view(entry->viewstamp.view);
         reply->set_opnum(entry->viewstamp.opnum);
@@ -433,7 +433,7 @@ HandleUnloggedRequest(const UnloggedRequestMessage &msg) //delete remote
 
     Debug("Received unlogged request %s", (char *)msg.req().op().c_str());
 
-    ExecuteUnlogged(msg.req(), *reply);
+    //ExecuteUnlogged(msg.req(), *reply);
     memset(src, 'c', 1);
     memcpy(src+1, &m, sizeof(m));
     dsnet::vr::rdma_server_send();
