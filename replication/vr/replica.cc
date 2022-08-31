@@ -101,6 +101,7 @@ static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
 static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
 static struct ibv_sge client_send_sge, server_recv_sge;
 static char *src = NULL, *dst = NULL, *type = NULL;
+struct sockaddr_in server_sockaddr;
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
 	
 int 
@@ -465,7 +466,6 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //bellow are for RDMA client
     // Hard-coded the destination address
     char* const RDMA_SERVER_ADDR = "10.1.0.4";
-    struct sockaddr_in server_sockaddr;
     bzero(&server_sockaddr, sizeof server_sockaddr);
     server_sockaddr.sin_family = AF_INET;
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
