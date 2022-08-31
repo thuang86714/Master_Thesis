@@ -107,6 +107,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     lastBatchEnd = 0;
     batchComplete = true;
     Amleader = true; //hard-coded bool of Amleader() function, use RDMA to chage value;
+    ifrequeststatetransfer = true;
     if (batchSize > 1) {
         Notice("Batching enabled; batch size %d", batchSize);
     }
@@ -173,7 +174,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
             this->lastRequestStateTransferOpnum = 0;
 	    memset(src, 'n', 1);
 	    rdma_client_send();
-            process_work_completion_events(io_completion_channel, &wc, 1);
+            process_work_completion_events(io_completion_channel, wc, 1);
         });
     this->stateTransferTimeout->Start();
     
@@ -403,9 +404,11 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
 	    //send remote
 	    memset(src, 'e', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
+	    memcpy(src+1, &replica_msg, sizeof(ToReplicaMessage));
 	    rdma_client_send();
 	    rdma_client_receive();
+	    memcpy(&r, dst+1, sizeof(replica_msg));
+            transport->SendMessage(this, remote, PBMessage(r));
         }break;	    //all lines below have not been scrutinized
         case ToReplicaMessage::MsgCase::kStateTransfer:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
@@ -998,8 +1001,8 @@ VRReplica::rdma_client_receive()
 		{//HanldeRequestStateTransfer()->transport
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    transport->SendMessage(this, remote, PBMessage(replica_msg));
+		    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+		    //transport->SendMessage(this, remote, PBMessage(replica_msg));
 		}break;
 	}
 	
