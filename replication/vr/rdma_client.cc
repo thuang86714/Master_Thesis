@@ -5,7 +5,7 @@
  */
 
 #include "rdma_common.h"
-#inculde "rdma_client.h"
+#include "rdma_client.h"
 /* These are basic RDMA resources */
 /* These are RDMA connection related resources */
 /*
