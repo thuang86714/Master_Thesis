@@ -167,7 +167,7 @@ CommitUpTo(opnum_t upto)
         RDebug("Executing request " FMT_OPNUM, lastCommitted);
         ToClientMessage m;
         ReplyMessage *reply = m.mutable_reply();
-        UpcallArg arg;
+        //UpcallArg arg;
         arg.isLeader = AmLeader();
         //Execute(lastCommitted, entry->request, *reply, &arg);
 
@@ -400,7 +400,7 @@ HandleUnloggedRequest(const UnloggedRequestMessage &msg) //delete remote
     }
 
     ToClientMessage m;
-    UnloggedReplyMessage *reply = m.mutable_unlogged_reply();
+    //UnloggedReplyMessage *reply = m.mutable_unlogged_reply();
 
     Debug("Received unlogged request %s", (char *)msg.req().op().c_str());
 
@@ -1455,7 +1455,7 @@ disconnect_and_cleanup()
 void
 rdma_server_send()
 {
-	struct ibv_wc wc;
+
 	
 	/* Step 1: is to copy the local buffer into the remote buffer. We will 
 	 * reuse the previous variables. */
