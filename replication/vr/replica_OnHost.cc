@@ -168,7 +168,7 @@ CommitUpTo(opnum_t upto)
         ToClientMessage m;
         ReplyMessage *reply = m.mutable_reply();
         //UpcallArg arg;
-        arg.isLeader = AmLeader();
+        //arg.isLeader = AmLeader();
         //Execute(lastCommitted, entry->request, *reply, &arg);
 
         reply->set_view(entry->viewstamp.view);
