@@ -1693,7 +1693,7 @@ int main(int argc, char **argv)
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
-	char* RDMA_CLIENT_ADDR = "10.1.0.7";
+	char* RDMA_CLIENT_ADDR = "10.1.0.4";
 	dsnet::vr::src = dsnet::vr::dst = dsnet::vr::type = NULL;
         dsnet::vr::src = (char *)calloc(1073741824,1); 
         dsnet::vr::dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
