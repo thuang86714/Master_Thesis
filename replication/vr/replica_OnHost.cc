@@ -1621,6 +1621,19 @@ rdma_server_receive()
     		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    break;
 		}
+		case 'm':{//send lastop, batchcomplete=false
+			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    StartViewChange(view+1);
+		    break;
+		}
+		case 'n':{//send lastop, batchcomplete=false
+			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
+		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    lastRequestStateTransferView = 0;
+                    lastRequestStateTransferOpnum = 0;
+		    break;
+		}
 		case 't':{//send lastop, batchcomplete=false
 			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
