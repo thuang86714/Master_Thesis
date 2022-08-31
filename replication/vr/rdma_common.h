@@ -47,7 +47,7 @@ namespace vr {
 
 /* Capacity of the completion queue (CQ) */
 #define CQ_CAPACITY (16)
-/* MAX SGE capacity *
+/* MAX SGE capacity */
 #define MAX_SGE (2)
 /* MAX work requests */
 #define MAX_WR (8)
