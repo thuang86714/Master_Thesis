@@ -269,7 +269,7 @@ client_xchange_metadata_with_server()
 	int ret = -1;
 	client_src_mr = rdma_buffer_register(pd,
 			src,
-			sizeof(src), //orginal code was strlen()
+			sizeof(*src),
 			(IBV_ACCESS_LOCAL_WRITE));
 	if(!client_src_mr){
 		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
