@@ -1,10 +1,10 @@
 //replica logic on BF should be as lightweight as possible. All the slow path logic should be executed on Node10
 //We want to offload the extra tasks of a leader replica to BF, for example Send N Prepare messgare && Receive/Process N PrepareOK)
 /*
- * The RDMA server client part of code. 
+ * The RDMA server client part of code.
  *
- * Author: Animesh Trivedi 
- *         atrivedi@apache.org 
+ * Author: Animesh Trivedi
+ *         atrivedi@apache.org
  *
  * TODO: Cleanup previously allocated resources in case of an error condition
  */
@@ -18,33 +18,33 @@ from client to server                                              from server t
 'f' remote+StateTransfer                                           'f' HandleStartViewChange--ToReplicaMessage m
 'g' remote+StartViewChange                                         *'g' HandleDoViewChange--lastOp+ToReplicaMessage m
 'h' remote+DoViewChange                                            *'h' HandleStartView--lastOp changed+client_receive()
-'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m 
+'i' remote+StartView                                               'i' HandleRecovery--ToReplicaMessage m
 'j' remote+Recovery                                                *'j' HandleRecoveryResponse--lastOp changed+client_receive()
 'k' remote+RecoveryResponse                                        'k' Latency_Start(&executeAndReplyLatency)
 'l' Closebatch                                                     'l' Latency_End(&executeAndReplyLatency)-still in while loop, CommitUpto--transport
 'm'                                                               *'m' Latency_End(&executeAndReplyLatency)--while loop end, CommitUpto--transport
 X'n'                                                               'n' Latency_End(&executeAndReplyLatency)-still in while loop, NO CommitUpto--transport
 X'o'                                                               *'o' Latency_End(&executeAndReplyLatency)--while loop end, NO CommitUpto--transport
-X'p'                                                                'p' 
+X'p'                                                                'p'
 X'q'                                                                'q' sendPrepareOK->transport
-'r'                                                                 'r' 
+'r'                                                                 'r'
 's'                                                                's' RequestStateTransfer()->transport
 't' send lastop, batchcomplete=false,                              't' EnterView->Amleader==true (view, stauts, lastBatched, batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
 resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete, nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), prepareOKQuorum.Clear();, client_receive()
-'u' 
+'u'
 'v' NullCOmmitTimeout->start()                                     'v' StartViewChange+view, status, nullCommitTimeout->Stop();resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
 'w'                                                                'w' StartViewChange, client_receive();
 'x'                                                               'x' UpdateClientTable->clienttable
 'y'                                                                'y' CloseBatch->transport
 'z'                                                                'z' HanldeRequestStateTransfer()->transport
-'A'                               
+'A'
 'B' HandleRequest()--clientAddress, updateclienttable(), lastOp, new log entry, nullCommitTimeout->Reset();
 'C' HandleRequest()--clientAddress, updateclienttable(), lastOp, new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
 'D' HandlePrepareOk--RequestStateTransfer()
 'E' HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();, prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg)
 
 */
-//TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based, 
+//TODO-Tommy 1.move all transport->sendMessagetoAll() function to BF. 2.Edit client_send(), client_receive() to verb based,
 #include "common/replica.h"
 #include "replication/vr/replica.h"
 
@@ -59,22 +59,10 @@ resendPrepareTimeout->Reset();closeBatchTimeout->Stop()            'u' EnterView
 #include <random>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <getopt.h>
-
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
-#include <rdma/rdma_cma.h>
-#include <infiniband/verbs.h>
 //the next two lib are for RDMA
 #include "rdma_common.h"
 #include "rdma_client.h"
+
 #define RDebug(fmt, ...) Debug("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
 #define RNotice(fmt, ...) Notice("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
 #define RWarning(fmt, ...) Warning("[%d] " fmt, this->replicaIdx, ##__VA_ARGS__)
@@ -84,26 +72,20 @@ namespace dsnet {
 namespace vr {
 
 using namespace proto;
-static struct rdma_event_channel *cm_event_channel = NULL;
-static struct rdma_cm_id *cm_client_id = NULL;
-static struct ibv_pd *pd = NULL;
-static struct ibv_comp_channel *io_completion_channel = NULL;
-static struct ibv_cq *client_cq = NULL;
-static struct ibv_qp_init_attr qp_init_attr;
-static struct ibv_qp *client_qp;
-/* These are memory buffers related resources */
-static struct ibv_mr *client_metadata_mr = NULL, 
-		     *client_src_mr = NULL, 
-		     *client_dst_mr = NULL, 
-		     *server_metadata_mr = NULL;
-static struct rdma_buffer_attr client_metadata_attr, server_metadata_attr;
-static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
-static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
-static struct ibv_sge client_send_sge, server_recv_sge;
-static char *src = NULL, *dst = NULL, *type = NULL;
-struct sockaddr_in server_sockaddr;
+
+    static struct ibv_pd *pd = NULL;
+    static struct ibv_comp_channel *io_completion_channel = NULL;
+    static struct ibv_qp *client_qp;
+    /* These are memory buffers related resources */
+    static struct ibv_mr *client_src_mr = NULL,
+                         *client_dst_mr = NULL;
+
+    static struct ibv_send_wr client_send_wr, *bad_client_send_wr = NULL;
+    static struct ibv_recv_wr server_recv_wr, *bad_server_recv_wr = NULL;
+    static struct ibv_sge client_send_sge, server_recv_sge;
+    /* Source and Destination buffers, where RDMA operations source and sink */
+    static char *src = NULL, *dst = NULL, *type = NULL;
 //for constrcutor, should have a RDMA write function to write initial state to RDMA server(the host)
-	
 VRReplica::VRReplica(Configuration config, int myIdx,
                      bool initialize,
                      Transport *transport, int batchSize,
@@ -129,63 +111,59 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     if (batchSize > 1) {
         Notice("Batching enabled; batch size %d", batchSize);
     }
-    //add a rdma write function (for registration propose) to RDMA server. 
+    //add a rdma write function (for registration propose) to RDMA server.
     //bellow are for RDMA client
     // Hard-coded the destination address
     char* const RDMA_SERVER_ADDR = "10.1.0.4";
+    struct sockaddr_in server_sockaddr;
     bzero(&server_sockaddr, sizeof server_sockaddr);
     server_sockaddr.sin_family = AF_INET;
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     /* buffers are NULL */
-    src = dst = type = NULL; 
+    src = dst = type = NULL;
     src = (char *)calloc(1000000,1); //=1GB, would that cause overflow? Nope(Q1
-    dst = (char *)calloc(1000000,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+    dst = (char *)calloc(1000000,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB),
     type = (char *)calloc(sizeof(char),1);
     //BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
     /* These are the RDMA resources needed to setup an RDMA connection */
     /* Event channel, where connection management (cm) related events are relayed */
     //Hardcoded the RDMA server addr as 10.1.0.4
     //Need to find way for sent message other than string
-    
+
     //would this amount of capacity affect performance
     //set address
-    client_dst_mr = rdma_buffer_register(pd,
-		dst,
-		sizeof(*src),
-		IBV_ACCESS_LOCAL_WRITE);
-    client_src_mr = rdma_buffer_register(pd,
-			src,
-			sizeof(*src),
-			(IBV_ACCESS_LOCAL_WRITE));
     get_addr(RDMA_SERVER_ADDR, (struct sockaddr*) &server_sockaddr);
     //set to default port
     server_sockaddr.sin_port = htons(DEFAULT_RDMA_PORT);
     ///* This function prepares client side connection resources for an RDMA connection */
     client_prepare_connection(&server_sockaddr);
     /* Pre-posts a receive buffer before calling rdma_connect () */
-    client_pre_post_recv_buffer(); 
+    client_pre_post_recv_buffer();
     /* Connects to the RDMA server */
     client_connect_to_server();
     //Exchange buffer metadata with the server.
     client_xchange_metadata_with_server();
-    
+    client_dst_mr = rdma_buffer_register(pd,
+                dst,
+                sizeof(*src),
+                IBV_ACCESS_LOCAL_WRITE);
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
     struct ibv_wc wc[2];
     bzero(src, sizeof(*src));
-    
+
      this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             //StartViewChange(view+1);
-	    memset(src, 'm', 1);
-	    rdma_client_send();
+            memset(src, 'm', 1);
+            rdma_client_send();
         });
     this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
             this->lastRequestStateTransferView = 0;
             this->lastRequestStateTransferOpnum = 0;
-	    memset(src, 'n', 1);
-	    rdma_client_send();
+            memset(src, 'n', 1);
+            rdma_client_send();
         });
     this->stateTransferTimeout->Start();
     this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
@@ -208,23 +186,23 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     if (initialize) { //initialize == true
         if (Amleader) {
             nullCommitTimeout->Start();
-	    memset(src, 'v', 1);
-	    rdma_client_send();//no need for ack from client side
-	    process_work_completion_events(io_completion_channel, wc, 1);
+            memset(src, 'v', 1);
+            rdma_client_send();//no need for ack from client side
+            process_work_completion_events(io_completion_channel, wc, 1);
         } else {
             viewChangeTimeout->Start();
-	    //no need to send message to RDMA server since Amleader is hard-coded as true
+            //no need to send message to RDMA server since Amleader is hard-coded as true
         }
     } else {
         this->status = STATUS_RECOVERING;
         this->recoveryNonce = GenerateNonce();
         SendRecoveryMessages();
         recoveryTimeout->Start();
-	//no need to send message since initialize == true
+        //no need to send message since initialize == true
     }
 }
 
-		
+
 //destructor should not need any change
 VRReplica::~VRReplica()
 {
@@ -243,7 +221,7 @@ VRReplica::~VRReplica()
     }
     client_disconnect_and_clean();
 }
-		  
+
 uint64_t
 VRReplica::GenerateNonce() const
 {
@@ -257,7 +235,7 @@ bool
 VRReplica::AmLeader() const
 {
     return (configuration.GetLeaderIndex(view) == this->replicaIdx);
-}		  
+}
 */
 void
 VRReplica::SendRecoveryMessages()
@@ -266,14 +244,14 @@ VRReplica::SendRecoveryMessages()
     RecoveryMessage *recovery = m.mutable_recovery();
     recovery->set_replicaidx(this->replicaIdx);
     recovery->set_nonce(recoveryNonce);
-    
+
     RNotice("Requesting recovery");
-    
-    
+
+
     if (!transport->SendMessageToAll(this, PBMessage(m))) {
         RWarning("Failed to send Recovery message to all replicas");
     }
-    
+
 }
 //send prepare message
 //No need tidy up
@@ -310,7 +288,7 @@ VRReplica::CloseBatch()
         *r = entry->request;
     }
     */
-    /*	move to client_receive case 'b'
+    /*  move to client_receive case 'b'
     if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
         RWarning("Failed to send prepare message to all replicas");
     }
@@ -324,7 +302,7 @@ VRReplica::CloseBatch()
     rdma_client_send();
     process_work_completion_events(io_completion_channel, wc, 3); //an ack to gurantee receive
 }
-	
+
 void
 VRReplica::SendNullCommit()
 {
@@ -352,7 +330,7 @@ VRReplica::ResendPrepare()
         RWarning("Failed to ressend prepare message to all replicas");
     }
 }
-  
+
 
 //further divide needed
 void
@@ -367,113 +345,113 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
     switch (replica_msg.msg_case()) {
         case ToReplicaMessage::MsgCase::kRequest:{
             HandleRequest(remote, replica_msg.request());
-	}break;
-	case ToReplicaMessage::MsgCase::kPrepareOk:{
+        }break;
+        case ToReplicaMessage::MsgCase::kPrepareOk:{
             HandlePrepareOK(remote, replica_msg.prepare_ok());
-	}break;
-	//all cases below should be executed on the Host
+        }break;
+        //all cases below should be executed on the Host
         case ToReplicaMessage::MsgCase::kUnloggedRequest:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleUnloggedRequest(remote, replica_msg.unlogged_request());
-	    //send remote
-	    memset(src, 'b', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
-	    memcpy(&c, dst+1, sizeof(ToClientMessage));
-	    if (!(transport->SendMessage(this, remote, PBMessage(c))))
+            //send remote
+            memset(src, 'b', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
+            memcpy(&c, dst+1, sizeof(ToClientMessage));
+            if (!(transport->SendMessage(this, remote, PBMessage(c))))
             Warning("Failed to send reply message");
         }break;
         case ToReplicaMessage::MsgCase::kPrepare:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandlePrepare(remote, replica_msg.prepare());
-	    //send remote
-	    ifrequeststatetransfer = true;
-	    memset(src, 'c', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
-	    if (!ifrequeststatetransfer) {
+            //send remote
+            ifrequeststatetransfer = true;
+            memset(src, 'c', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
+            if (!ifrequeststatetransfer) {
             pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg.prepare()));
             }
-	    ifrequeststatetransfer = true;
-	}break;
+            ifrequeststatetransfer = true;
+        }break;
         case ToReplicaMessage::MsgCase::kCommit:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleCommit(remote, replica_msg.commit());
-	    //send remote
-	    memset(src, 'd', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    //process_work_completion_events(io_completion_channel, wc, 1);
-	    rdma_client_receive();
+            //send remote
+            memset(src, 'd', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            //process_work_completion_events(io_completion_channel, wc, 1);
+            rdma_client_receive();
         }break;
         case ToReplicaMessage::MsgCase::kRequestStateTransfer:{
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRequestStateTransfer(remote,replica_msg.request_state_transfer());
-	    //send remote
-	    memset(src, 'e', 1);
-	    memcpy(src+1, &replica_msg, sizeof(ToReplicaMessage));
-	    rdma_client_send();
-	    rdma_client_receive();
-	    memcpy(&r, dst+1, sizeof(replica_msg));
+            //send remote
+            memset(src, 'e', 1);
+            memcpy(src+1, &replica_msg, sizeof(ToReplicaMessage));
+            rdma_client_send();
+            rdma_client_receive();
+            memcpy(&r, dst+1, sizeof(replica_msg));
             transport->SendMessage(this, remote, PBMessage(r));
-        }break;	    //all lines below have not been scrutinized
+        }break;     //all lines below have not been scrutinized
         case ToReplicaMessage::MsgCase::kStateTransfer:{
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStateTransfer(remote, replica_msg.state_transfer());
-	    //send remote
-	    memset(src, 'f', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
+            //send remote
+            memset(src, 'f', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
         }break;
         case ToReplicaMessage::MsgCase::kStartViewChange:{
-            //this should be moved to Host. Let Host as RDMA client, do rdma read and process. 
+            //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartViewChange(remote, replica_msg.start_view_change());
-	    memset(src, 'g', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
+            memset(src, 'g', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
         }break;
         case ToReplicaMessage::MsgCase::kDoViewChange:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleDoViewChange(remote, replica_msg.do_view_change());
-	    memset(src, 'h', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
+            memset(src, 'h', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
         }break;
         case ToReplicaMessage::MsgCase::kStartView:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleStartView(remote, replica_msg.start_view());
-	    memset(src, 'i', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
+            memset(src, 'i', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
         }break;
         case ToReplicaMessage::MsgCase::kRecovery:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecovery(remote, replica_msg.recovery());
-	    memset(src, 'j', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
-	    memcpy(&r, dst+1, sizeof(ToReplicaMessage));
-	    if (!(transport->SendMessage(this, remote, PBMessage(r)))) {
+            memset(src, 'j', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
+            memcpy(&r, dst+1, sizeof(ToReplicaMessage));
+            if (!(transport->SendMessage(this, remote, PBMessage(r)))) {
                 RWarning("Failed to send recovery response");
             }
         }break;
-		    
+
         case ToReplicaMessage::MsgCase::kRecoveryResponse:{
             //this should be moved to Host. Let Host as RDMA client, do rdma read and process.
             //HandleRecoveryResponse(remote, replica_msg.recovery_response());
-	    memset(src, 'k', 1);
-	    memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	    rdma_client_send();
-	    rdma_client_receive();
+            memset(src, 'k', 1);
+            memcpy(src+1, &replica_msg, sizeof(replica_msg));
+            rdma_client_send();
+            rdma_client_receive();
         }break;
-		    
+
         default:
             //the line below should not need further change
             RPanic("Received unexpected message type %u",replica_msg.msg_case());
@@ -541,10 +519,10 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             }
         }
     }
-    
+
     //UpdateClientTable(msg.req()); on N10
     memcpy(src+1+sizeof(int)+sizeof(clientAddresses), &msg.req(), sizeof(msg.req()));
-	
+
     // Leader Upcall
     bool replicate = false;
     string res;
@@ -574,14 +552,14 @@ VRReplica::HandleRequest(const TransportAddress &remote,
 
         /* Assign it an opnum */
         ++this->lastOp;
-	memcpy(src+1+sizeof(clientAddresses)+sizeof(msg.req()), &lastOp, sizeof(lastOp));
+        memcpy(src+1+sizeof(clientAddresses)+sizeof(msg.req()), &lastOp, sizeof(lastOp));
         v.view = this->view;
         v.opnum = this->lastOp;
 
         RDebug("Received REQUEST, assigning " FMT_VIEWSTAMP, VA_VIEWSTAMP(v));
 
         /* Add the request to my log */
-	newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
+        newlogentry = new LogEntry(v, LOG_STATE_PREPARED, request);
         log.Append(newlogentry);
         memcpy(src+1+sizeof(int)+sizeof(clientAddresses)+sizeof(msg.req())+sizeof(lastOp), &newlogentry, sizeof(LogEntry));
         if (batchComplete ||
@@ -591,19 +569,19 @@ VRReplica::HandleRequest(const TransportAddress &remote,
             RDebug("Keeping in batch");
             if (!closeBatchTimeout->Active()) {
                 closeBatchTimeout->Start();
-		memset(src, 'C', 1);
-		rdma_client_send();
-		nullCommitTimeout->Reset();
-        	Latency_End(&requestLatency);
-		process_work_completion_events(io_completion_channel, &wc, 1);
-		return;
+                memset(src, 'C', 1);
+                rdma_client_send();
+                nullCommitTimeout->Reset();
+                Latency_End(&requestLatency);
+                process_work_completion_events(io_completion_channel, &wc, 1);
+                return;
             }
         }
 
         nullCommitTimeout->Reset();
         Latency_End(&requestLatency);
-	rdma_client_send();
-	process_work_completion_events(io_completion_channel, &wc, 1);
+        rdma_client_send();
+        process_work_completion_events(io_completion_channel, &wc, 1);
     }
 }
 
@@ -611,18 +589,18 @@ void
 VRReplica::HandlePrepare(const TransportAddress &remote,
                            const PrepareMessage &msg)
 {
-	ToReplicaMessage replica_msg;
-	ifrequeststatetransfer = true;
-	memset(src, 'c', 1);
-	memcpy(src+1, &replica_msg, sizeof(replica_msg));
-	rdma_client_send();
+        ToReplicaMessage replica_msg;
+        ifrequeststatetransfer = true;
+        memset(src, 'c', 1);
+        memcpy(src+1, &replica_msg, sizeof(replica_msg));
+        rdma_client_send();
         rdma_client_receive();
         if (!ifrequeststatetransfer) {
             pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), msg));
         }
-	ifrequeststatetransfer = true;
+        ifrequeststatetransfer = true;
 }
-	
+
 //this function might still change the state that N10 might need to know
 void
 VRReplica::HandlePrepareOK(const TransportAddress &remote,
@@ -645,9 +623,9 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 
     if (msg.view() > this->view) {
         //RequestStateTransfer();
-	memset(src, 'D', 1);
-	rdma_client_send();
-	process_work_completion_events(io_completion_channel, &wc, 1);
+        memset(src, 'D', 1);
+        rdma_client_send();
+        process_work_completion_events(io_completion_channel, &wc, 1);
         return;
     }
 
@@ -668,13 +646,13 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
          *
          * This also notifies the client of the result.
          */
-	    
-	//the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
+
+        //the line below require RDMA write to N10. No need do RDMA read since the return of CommitUpto is void.
         //CommitUpTo(msg.opnum());
-	memset(src, 'E', 1);
-	memcpy(src+1, &vs, sizeof(vs));
-	memcpy(src+1+sizeof(vs), &msg, sizeof(msg));
-	
+        memset(src, 'E', 1);
+        memcpy(src+1, &vs, sizeof(vs));
+        memcpy(src+1+sizeof(vs), &msg, sizeof(msg));
+
 
         if (msgs->size() >= (unsigned int)configuration.QuorumSize()) {
             return;
@@ -697,7 +675,7 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 
         nullCommitTimeout->Reset();
         rdma_client_send();
-	process_work_completion_events(io_completion_channel, &wc, 1); 
+        process_work_completion_events(io_completion_channel, &wc, 1);
         // XXX Adaptive batching -- make this configurable
         if (lastBatchEnd == msg.opnum()) {
             batchComplete = true;//batchcomplete seems to be not important to logic on N10, we dont send this bool for now
@@ -710,329 +688,329 @@ VRReplica::HandlePrepareOK(const TransportAddress &remote,
 
 //orignially this function include 1st RDMA Write from client to server + 2nd RDMA Read from client to server (execute as ordered)
 //I will divide the function into 2 separate function, RDMA Write & RDMA Read
-//Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation. 
+//Actually there are 2 approaches, 1 is frequent write(to override), 1 is atomic operation.
 //But according to Page 106, Mellanox Verbs Programming Tutorial (by Dotan Barak) , atomic operation is performance killer
-void 
+void
 VRReplica::rdma_client_send()
 {
-	//struct ibv_wc wc;
-	
-	/* Step 1: is to copy the local buffer into the remote buffer. We will 
-	 * reuse the previous variables. */
-	/* now we fill up SGE */
-	client_send_sge.addr = (uint64_t) client_src_mr->addr;
-	client_send_sge.length = (uint32_t) client_src_mr->length;
-	client_send_sge.lkey = client_src_mr->lkey;
-	/* now we link to the send work request */
-	bzero(&client_send_wr, sizeof(client_send_wr));
-	client_send_wr.sg_list = &client_send_sge;
-	client_send_wr.num_sge = 1;
-	client_send_wr.opcode = IBV_WR_SEND;
-	client_send_wr.send_flags = IBV_SEND_SIGNALED;
-	/* we have to tell server side info for RDMA */
-	//client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
-	//client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
-	/* Now we post it */
-	ibv_post_send(client_qp, 
-		       &client_send_wr,
-	       &bad_client_send_wr);
-	/* at this point we are expecting 1 work completion for the write */
-	/*
-	ret = process_work_completion_events(io_completion_channel, 
-			&wc, 1);
-	if(ret != 1) {
-		rdma_error("We failed to get 1 work completions , ret = %d \n",
-				ret);
-		return ret;
-	}
-	debug("Client side SEND is complete \n");
-	*/
-	memset(src, 0, sizeof(*src));
+        //struct ibv_wc wc;
+
+        /* Step 1: is to copy the local buffer into the remote buffer. We will
+         * reuse the previous variables. */
+        /* now we fill up SGE */
+        client_send_sge.addr = (uint64_t) client_src_mr->addr;
+        client_send_sge.length = (uint32_t) client_src_mr->length;
+        client_send_sge.lkey = client_src_mr->lkey;
+        /* now we link to the send work request */
+        bzero(&client_send_wr, sizeof(client_send_wr));
+        client_send_wr.sg_list = &client_send_sge;
+        client_send_wr.num_sge = 1;
+        client_send_wr.opcode = IBV_WR_SEND;
+        client_send_wr.send_flags = IBV_SEND_SIGNALED;
+        /* we have to tell server side info for RDMA */
+        //client_send_wr.wr.rdma.rkey = server_metadata_attr.stag.remote_stag;
+        //client_send_wr.wr.rdma.remote_addr = server_metadata_attr.address;
+        /* Now we post it */
+        ibv_post_send(client_qp,
+                       &client_send_wr,
+               &bad_client_send_wr);
+        /* at this point we are expecting 1 work completion for the write */
+        /*
+        ret = process_work_completion_events(io_completion_channel,
+                        &wc, 1);
+        if(ret != 1) {
+                rdma_error("We failed to get 1 work completions , ret = %d \n",
+                                ret);
+                return ret;
+        }
+        debug("Client side SEND is complete \n");
+        */
+        memset(src, 0, sizeof(*src));
 }
 
-
-//this function is RDMA read: this function could only do Memory Region Level Read, can not do 
-void 
+//this function is RDMA read: this function could only do Memory Region Level Read, can not do
+void
 VRReplica::rdma_client_receive()
-{       
-	
-	memset(dst,0, sizeof(*dst));
-	memset(type, 0, sizeof(*type));
-	/* Now we prepare a READ using same variables but for destination */
-	server_recv_sge.addr = (uint64_t) client_dst_mr->addr;
-	server_recv_sge.length = (uint32_t) client_dst_mr->length;
-	server_recv_sge.lkey = client_dst_mr->lkey;
-	/* now we link to the send work request */
-	bzero(&server_recv_wr, sizeof(server_recv_wr));
-	server_recv_wr.sg_list = &server_recv_sge;
-	server_recv_wr.num_sge = 1;
-	/* Now we post it */
-	ibv_post_recv(client_qp, &server_recv_wr,&bad_server_recv_wr);
-	// at this point we are expecting 1 work completion for the write 
-	//leave process_work_completion_events()
-	debug("Client side receive is complete \n");
-	ToReplicaMessage replica_msg;
-	ToClientMessage client_msg;
-	memcpy(type, dst, 1);
-	switch(*type)
-	{
-		case 'a': 
-		{//ack; for situation that same function may have different returns
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    
-		}break;
-			
-		case 'b': 
-		{ //CloseBatch--PBMessage(lastPrepare)
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    memcpy(&lastPrepare, dst, sizeof(lastPrepare));
-		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
-        	    RWarning("Failed to send prepare message to all replicas");
-   		    }
-		}break;
-			
-		case 'c': 
-		{//HandleUnlogged--ToClientMessage m
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    //rest logic handled by case ToReplicaMessage::MsgCase::kUnloggedRequest:{
-		}break;
-			
-		case 'd': 
-		{//HandlePrepare--ToClientMessage m
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
+{
+
+        memset(dst,0, sizeof(*dst));
+        memset(type, 0, sizeof(*type));
+        /* Now we prepare a READ using same variables but for destination */
+        server_recv_sge.addr = (uint64_t) client_dst_mr->addr;
+        server_recv_sge.length = (uint32_t) client_dst_mr->length;
+        server_recv_sge.lkey = client_dst_mr->lkey;
+        /* now we link to the send work request */
+        bzero(&server_recv_wr, sizeof(server_recv_wr));
+        server_recv_wr.sg_list = &server_recv_sge;
+        server_recv_wr.num_sge = 1;
+        /* Now we post it */
+        ibv_post_recv(client_qp, &server_recv_wr,&bad_server_recv_wr);
+        // at this point we are expecting 1 work completion for the write
+        //leave process_work_completion_events()
+        debug("Client side receive is complete \n");
+        ToReplicaMessage replica_msg;
+        ToClientMessage client_msg;
+        memcpy(type, dst, 1);
+        switch(*type)
+        {
+                case 'a':
+                {//ack; for situation that same function may have different returns
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+
+                }break;
+
+                case 'b':
+                { //CloseBatch--PBMessage(lastPrepare)
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    memcpy(&lastPrepare, dst, sizeof(lastPrepare));
+                    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
+                    RWarning("Failed to send prepare message to all replicas");
+                    }
+                }break;
+
+                case 'c':
+                {//HandleUnlogged--ToClientMessage m
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    //rest logic handled by case ToReplicaMessage::MsgCase::kUnloggedRequest:{
+                }break;
+
+                case 'd':
+                {//HandlePrepare--ToClientMessage m
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
                     memcpy(&client_msg, dst+1, sizeof(client_msg));
                     if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(client_msg)))) {
                     RWarning("Failed to send PrepareOK message to leader");
-		}rdma_client_receive();
-		break;
-			
-		case 'e': 
-		{//handleStateTransfer--new lastOp
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-	    	    memcpy(&lastOp, dst+1, sizeof(lastOp));
-		}rdma_client_receive();
-		break;
-			
-		case 'f': 
-		{//HandleStartViewChange--ToReplicaMessage m;
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
+                }rdma_client_receive();
+                break;
+
+                case 'e':
+                {//handleStateTransfer--new lastOp
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    memcpy(&lastOp, dst+1, sizeof(lastOp));
+                }rdma_client_receive();
+                break;
+
+                case 'f':
+                {//HandleStartViewChange--ToReplicaMessage m;
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
                     memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    if (!(transport->SendMessageToReplica(this, (view % 3), PBMessage(replica_msg)))) {
+                    if (!(transport->SendMessageToReplica(this, (view % 3), PBMessage(replica_msg)))) {
                     RWarning("Failed to send DoViewChange message to leader of new view");
                     }
-		}break;
-			
-		case 'g': 
-		{//HandleDoViewChange--lastOp changed + ToReplicaMessage m
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    memcpy(&lastOp, dst+1, sizeof(lastOp));
+                }break;
+
+                case 'g':
+                {//HandleDoViewChange--lastOp changed + ToReplicaMessage m
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    memcpy(&lastOp, dst+1, sizeof(lastOp));
                     memcpy(&replica_msg, dst+1+sizeof(lastOp), sizeof(replica_msg));
-		    if (!(transport->SendMessageToAll(this, PBMessage(replica_msg)))) {
-            	    RWarning("Failed to send StartView message to all replicas");
-        	    }
-		}break;
-			
-		case 'h': 
-		{//HandleStartView--lastOp changed
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    memcpy(&lastOp, dst+1, sizeof(lastOp));
-		}rdma_client_receive();
-		break;
-			
-		case 'i': 
-		{//HandleRecovery--ToReplicaMessage m 
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    //memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
-		    //if (!(transport->SendMessage(this, remote, PBMessage(replica_msg)))) {
+                    if (!(transport->SendMessageToAll(this, PBMessage(replica_msg)))) {
+                    RWarning("Failed to send StartView message to all replicas");
+                    }
+                }break;
+
+                case 'h':
+                {//HandleStartView--lastOp changed
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    memcpy(&lastOp, dst+1, sizeof(lastOp));
+                }rdma_client_receive();
+                break;
+
+                case 'i':
+                {//HandleRecovery--ToReplicaMessage m
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+                    //memcpy(&remote, dst+1+sizeof(replica_msg), sizeof(TransportAddress));
+                    //if (!(transport->SendMessage(this, remote, PBMessage(replica_msg)))) {
                     //RWarning("Failed to send recovery response");
                     //}
-		}break;
-			
-		case 'j': 
-		{//HandleRecoveryResponse--lastOp changed
-		    struct ibv_wc wc[2];
-		    process_work_completion_events(io_completion_channel, wc, 2);
-		    memcpy(&lastOp, dst+1, sizeof(lastOp));
-		}rdma_client_receive();
-		break;
-			
-		//below are reserved for non-handle functions()
-		case 'k': 
-		{//CommitUpto--Latency_Start
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    Latency_Start(&executeAndReplyLatency);
-		}rdma_client_receive();
-		break;
-			
-		case 'l': 
-		{//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
-		    Latency_End(&executeAndReplyLatency);
-		    struct ibv_wc wc;
-		    lastCommitted++;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    int n;
-		    memcpy(&n, dst+1, sizeof(int));
-		    memcpy(&replica_msg, dst+1+sizeof(int), sizeof(replica_msg));
-		    auto iter = clientAddresses.find(n);
-		    transport->SendMessage(this, *iter->second, PBMessage(replica_msg));
-		}rdma_client_receive();
-		break;
-			
-		case 'n': 
-		{//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
-		    Latency_End(&executeAndReplyLatency);
-		    struct ibv_wc wc;
-		    lastCommitted++;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		}rdma_client_receive();
-		break;
-			
-	        case 'p': 
-		{//HandlePrepare--viewChangeTimeout->Reset();
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    viewChangeTimeout->Reset();
-		}rdma_client_receive();
-		break;
-			
-		case 'q': 
-		{//sendPrepareOks->transport
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(replica_msg)))) {
+                }break;
+
+                case 'j':
+                {//HandleRecoveryResponse--lastOp changed
+                    struct ibv_wc wc[2];
+                    process_work_completion_events(io_completion_channel, wc, 2);
+                    memcpy(&lastOp, dst+1, sizeof(lastOp));
+                }rdma_client_receive();
+                break;
+
+                //below are reserved for non-handle functions()
+                case 'k':
+                {//CommitUpto--Latency_Start
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    Latency_Start(&executeAndReplyLatency);
+                }rdma_client_receive();
+                break;
+
+                case 'l':
+                {//Latency_End(&executeAndReplyLatency)-still in while loop, transport->SendMessage()
+                    Latency_End(&executeAndReplyLatency);
+                    struct ibv_wc wc;
+                    lastCommitted++;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    int n;
+                    memcpy(&n, dst+1, sizeof(int));
+                    memcpy(&replica_msg, dst+1+sizeof(int), sizeof(replica_msg));
+                    auto iter = clientAddresses.find(n);
+                    transport->SendMessage(this, *iter->second, PBMessage(replica_msg));
+                }rdma_client_receive();
+                break;
+
+                case 'n':
+                {//Latency_End(&executeAndReplyLatency)-still in while loop, NO transport->SendMessage()
+                    Latency_End(&executeAndReplyLatency);
+                    struct ibv_wc wc;
+                    lastCommitted++;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                }rdma_client_receive();
+                break;
+
+                case 'p':
+                {//HandlePrepare--viewChangeTimeout->Reset();
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    viewChangeTimeout->Reset();
+                }rdma_client_receive();
+                break;
+
+                case 'q':
+                {//sendPrepareOks->transport
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+                    if (!(transport->SendMessageToReplica(this,(view % 3),PBMessage(replica_msg)))) {
                     RWarning("Failed to send PrepareOK message to leader");
                     }
-		    std::list<std::pair<TransportAddress *, PrepareMessage> >pending = pendingPrepares;
-    		    pendingPrepares.clear();
-    		    for (auto & msgpair : pending) {
-        	    	RDebug("Processing pending prepare message");
-          	    	HandlePrepare(*msgpair.first, msgpair.second);
-        	    	delete msgpair.first;
-    		    }
-		}
-		break;
-			
-		case 'r': 
-		{//Not defined
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		}break;
-			
-	        case 's': 
-		{//RequestStateTransfer()->transport
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    ifrequeststatetransfer = false;
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
-        	    RWarning("Failed to send RequestStateTransfer message to all replicas");
-   		    }
-		}break;
-			
-		case 't': 
-		{//EnterView->Amleader==true (view, stauts, lastBatched, 
-			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
-		    recoveryTimeout->Stop();
-		    viewChangeTimeout->Stop();
-		    nullCommitTimeout->Start();
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    Amleader = true;
-		    status = STATUS_NORMAL;
-		    memcpy(&view, dst+1, sizeof(view));
-		    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
-		    batchComplete = true;
-		    prepareOKQuorum.Clear();
-		}rdma_client_receive();
-		break;
-			
-		case 'u': 
-		{
-			//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
-			//nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), 
-			//prepareOKQuorum.Clear();, client_receive()
-		    recoveryTimeout->Stop();
-		    viewChangeTimeout->Start();
-		    nullCommitTimeout->Stop();
-        	    resendPrepareTimeout->Stop();
-        	    closeBatchTimeout->Stop();
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    Amleader = false;
-		    status = STATUS_NORMAL;
-		    memcpy(&view, dst+1, sizeof(view));
-		    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
-		    batchComplete = true;
-		    prepareOKQuorum.Clear();
-		}rdma_client_receive();
-		break;
-			
-		case 'v': 
-		{//StartViewChange+view, status, nullCommitTimeout->Stop();
-			//resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
-		    viewChangeTimeout->Reset();
-		    nullCommitTimeout->Stop();
-      	 	    resendPrepareTimeout->Stop();
-    		    closeBatchTimeout->Stop();
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    status = STATUS_VIEW_CHANGE;
-		    memcpy(&view, dst+1, sizeof(view));
-		}rdma_client_receive();
-		break;
-			
-		case 'w': 
-		{//StartViewChange->transport
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
-       		    RWarning("Failed to send StartViewChange message to all replicas");
-    		    }
-		}rdma_client_receive();
-		break;
-			
-		case 'x': 
-		{//UpdateClientTable->clienttable
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    int sizeofclientTable;
-		    memcpy(&sizeofclientTable, dst+1, sizeof(int));
-		    memcpy(&clientTable, &dst+1+sizeof(int), sizeof(clientTable));
-		}break;
-			
-		case 'y': 
-		{//CloseBatch->transport
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    memcpy(&lastPrepare, dst+1, sizeof(lastPrepare));
-		    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
-        	    RWarning("Failed to send prepare message to all replicas");
+                    std::list<std::pair<TransportAddress *, PrepareMessage> >pending = pendingPrepares;
+                    pendingPrepares.clear();
+                    for (auto & msgpair : pending) {
+                        RDebug("Processing pending prepare message");
+                        HandlePrepare(*msgpair.first, msgpair.second);
+                        delete msgpair.first;
                     }
-		}break;
-			
-		case 'z': 
-		{//HanldeRequestStateTransfer()->transport
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
-		    //transport->SendMessage(this, remote, PBMessage(replica_msg));
-		}break;
-	}
-} 
-	
+                }
+                break;
+
+                case 'r':
+                {//Not defined
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                }break;
+
+                case 's':
+                {//RequestStateTransfer()->transport
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    ifrequeststatetransfer = false;
+                    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+                    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
+                    RWarning("Failed to send RequestStateTransfer message to all replicas");
+                    }
+                }break;
+
+                case 't':
+                {//EnterView->Amleader==true (view, stauts, lastBatched,
+                        //batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
+                    recoveryTimeout->Stop();
+                    viewChangeTimeout->Stop();
+                    nullCommitTimeout->Start();
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    Amleader = true;
+                    status = STATUS_NORMAL;
+                    memcpy(&view, dst+1, sizeof(view));
+                    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
+                    batchComplete = true;
+                    prepareOKQuorum.Clear();
+                }rdma_client_receive();
+                break;
+
+                case 'u':
+                {
+                        //EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
+                        //nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()),
+                        //prepareOKQuorum.Clear();, client_receive()
+                    recoveryTimeout->Stop();
+                    viewChangeTimeout->Start();
+                    nullCommitTimeout->Stop();
+                    resendPrepareTimeout->Stop();
+                    closeBatchTimeout->Stop();
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    Amleader = false;
+                    status = STATUS_NORMAL;
+                    memcpy(&view, dst+1, sizeof(view));
+                    memcpy(&lastBatchEnd, dst+1+sizeof(view), sizeof(lastBatchEnd));
+                    batchComplete = true;
+                    prepareOKQuorum.Clear();
+                }rdma_client_receive();
+                break;
+
+                case 'v':
+                {//StartViewChange+view, status, nullCommitTimeout->Stop();
+                        //resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
+                    viewChangeTimeout->Reset();
+                    nullCommitTimeout->Stop();
+                    resendPrepareTimeout->Stop();
+                    closeBatchTimeout->Stop();
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    status = STATUS_VIEW_CHANGE;
+                    memcpy(&view, dst+1, sizeof(view));
+                }rdma_client_receive();
+                break;
+
+                case 'w':
+                {//StartViewChange->transport
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+                    if (!transport->SendMessageToAll(this, PBMessage(replica_msg))) {
+                    RWarning("Failed to send StartViewChange message to all replicas");
+                    }
+                }rdma_client_receive();
+                break;
+
+                case 'x':
+                {//UpdateClientTable->clienttable
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    int sizeofclientTable;
+                    memcpy(&sizeofclientTable, dst+1, sizeof(int));
+                    memcpy(&clientTable, &dst+1+sizeof(int), sizeof(clientTable));
+                }break;
+
+                case 'y':
+                {//CloseBatch->transport
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    memcpy(&lastPrepare, dst+1, sizeof(lastPrepare));
+                    if (!(transport->SendMessageToAll(this, PBMessage(lastPrepare)))) {
+                    RWarning("Failed to send prepare message to all replicas");
+                    }
+                }break;
+
+                case 'z':
+                {//HanldeRequestStateTransfer()->transport
+                    struct ibv_wc wc;
+                    process_work_completion_events(io_completion_channel, &wc, 1);
+                    //memcpy(&replica_msg, dst+1, sizeof(replica_msg));
+                    //transport->SendMessage(this, remote, PBMessage(replica_msg));
+                }break;
+        }
+
+}
+
 
 }
 }
