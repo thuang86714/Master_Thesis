@@ -161,12 +161,19 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     rdma_client_receive();
     process_work_completion_events(io_completion_channel, wc, 2);
     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
+	    struct ibv_wc wc;
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
+	    memset(src, 'm', 1);
+	    rdma_client_send();
+            process_work_completion_events(io_completion_channel, &wc, 1);
         });
     this->stateTransferTimeout = new Timeout(transport, 1000, [this]() {
             this->lastRequestStateTransferView = 0;
             this->lastRequestStateTransferOpnum = 0;
+	    memset(src, 'n', 1);
+	    rdma_client_send();
+            process_work_completion_events(io_completion_channel, &wc, 1);
         });
     this->stateTransferTimeout->Start();
     
