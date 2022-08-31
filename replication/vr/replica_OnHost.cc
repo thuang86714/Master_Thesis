@@ -178,7 +178,6 @@ void
 CommitUpTo(opnum_t upto)
 {   
     struct ibv_wc wc;
-    int timeleft = upto - lastCommitted;
     while (lastCommitted < upto) {
         Latency_Start(&executeAndReplyLatency);
         memset(src, 'k', 1);
