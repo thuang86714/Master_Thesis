@@ -1683,6 +1683,8 @@ rdma_server_receive()
 		
 	}
 }
+}
+}
 //make main constantly listening on certain addr and port
 int main(int argc, char **argv) 
 {
@@ -1728,6 +1730,5 @@ int main(int argc, char **argv)
 	    dsnet::vr::rdma_server_receive();
 	}
 	return 0;
-}
-}
+
 }
