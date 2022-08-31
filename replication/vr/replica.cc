@@ -154,6 +154,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
                 dst,
                 sizeof(*src),
                 IBV_ACCESS_LOCAL_WRITE);
+    printf("successfully pass L157\n");
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
@@ -465,6 +466,7 @@ VRReplica::client_xchange_metadata_with_server()
 				-errno);
 		return -errno;
 	}
+	printf("successfully pass L468\n");
 	/* at this point we are expecting 2 work completion. One for our 
 	 * send and one for recv that we will get from the server for 
 	 * its buffer information */
@@ -477,6 +479,7 @@ VRReplica::client_xchange_metadata_with_server()
 	}
 	debug("Server sent us its buffer location and credentials, showing \n");
 	show_rdma_buffer_attr(&server_metadata_attr);
+	printf("successfully pass L481\n");
 	return 0;
 }
 
