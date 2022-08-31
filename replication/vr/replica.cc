@@ -121,8 +121,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     /* buffers are NULL */
     src = dst = type = NULL; 
-    src = (char *)calloc(1073741824,1); //=1GB, would that cause overflow? Nope(Q1
-    dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
+    src = (char *)calloc(1000000,1); //=1GB, would that cause overflow? Nope(Q1
+    dst = (char *)calloc(1000000,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
     type = (char *)calloc(sizeof(char),1);
     //BF will be used as RDMA client, the following 20 lines are for RDMA Client Resource init.
     /* These are the RDMA resources needed to setup an RDMA connection */
@@ -150,16 +150,9 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     //RDMA write for registration; (Configuration config, int myIdx,bool initialize,
     //Transport *transport, int batchSize(will hard-coded this one as 0),AppReplica *app)
     //send config
-    struct ibv_wc wc[4];
+    struct ibv_wc wc[2];
     bzero(src, sizeof(src));
-    memset(src, 'a', 1);
-    memcpy(src+1, &config, sizeof(config));
-    //copy myIdx
-    memcpy(src+1+sizeof(config), &myIdx, sizeof(myIdx));
-    //copy *transport
-    memcpy(src+1+sizeof(config)+sizeof(myIdx), transport, sizeof(*transport)); //dereference transport
-    rdma_client_send();
-    rdma_client_receive();
+    
      this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             //StartViewChange(view+1);
