@@ -98,12 +98,6 @@ struct ClientTableEntry
 	static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
 	static struct ibv_sge client_recv_sge, server_send_sge;
 	static char *src = NULL, *dst = NULL, *type = NULL;
-        static Timeout *viewChangeTimeout = NULL, 
-                       *nullCommitTimeout = NULL, 
-                       *stateTransferTimeout = NULL, 
-                       *resendPrepareTimeout = NULL, 
-                       *closeBatchTimeout= NULL,
-                       *recoveryTimeout= NULL;
         static Latency_t requestLatency, executeAndReplyLatency;
         static view_t view, lastRequestStateTransferView;
         static opnum_t lastCommitted, lastOp, lastRequestStateTransferOpnum, lastBatchEnd;
@@ -127,35 +121,13 @@ newTimeoutandLatency()
 {
 	std::string transport_cmdline;
 	transportptr = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
-	viewChangeTimeout = new Timeout(transportptr, 5000, [this,myIdx]() {
-            RWarning("Have not heard from leader; starting view change");
-            StartViewChange(view+1);
-        });
-        stateTransferTimeout = new Timeout(transportptr, 1000, [this]() {
-            lastRequestStateTransferView = 0;
-            lastRequestStateTransferOpnum = 0;
-        });
-        stateTransferTimeout->Start();
-        recoveryTimeout = new Timeout(transportptr, 5000, [this]() {
-            SendRecoveryMessages();
-        });
-	nullCommitTimeout = new Timeout(transportptr, 1000, [this]() {
-            SendNullCommit();
-        });
-        resendPrepareTimeout = new Timeout(transportptr, 500, [this]() {
-            //ResendPrepare();
-        });
-        closeBatchTimeout = new Timeout(transportptr, 300, [this]() {
-            CloseBatch();
-        });
-    
         _Latency_Init(&requestLatency, "request");
         _Latency_Init(&executeAndReplyLatency, "executeAndReply");
 	
 	if (AmLeader()) {
-            nullCommitTimeout->Start();
+            //nullCommitTimeout->Start();
         } else {
-            viewChangeTimeout->Start();
+            //viewChangeTimeout->Start();
         }
 }
 
@@ -336,19 +308,19 @@ EnterView(view_t newview)
     batchComplete = true;
     memcpy(src+1, &view, sizeof(view));
     memcpy(src+1+sizeof(view), &lastBatchEnd, sizeof(lastBatchEnd));
-    recoveryTimeout->Stop();
+    //recoveryTimeout->Stop();
 
     if (AmLeader()) {
-        viewChangeTimeout->Stop();
-        nullCommitTimeout->Start();
+        //viewChangeTimeout->Stop();
+        //nullCommitTimeout->Start();
 	memset(src, 't', 1);
 	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
     } else {
-        viewChangeTimeout->Start();
-        nullCommitTimeout->Stop();
-        resendPrepareTimeout->Stop();
-        closeBatchTimeout->Stop();
+        //viewChangeTimeout->Start();
+        //nullCommitTimeout->Stop();
+        //resendPrepareTimeout->Stop();
+        //closeBatchTimeout->Stop();
 	memset(src, 'u', 1);
 	dsnet::vr::rdma_server_send();
 	process_work_completion_events(io_completion_channel, &wc, 1);
@@ -370,10 +342,10 @@ StartViewChange(view_t newview)
     status = STATUS_VIEW_CHANGE;
     memset(src, 'v', 1);
     memcpy(src+1, &view, sizeof(view));
-    viewChangeTimeout->Reset();
-    nullCommitTimeout->Stop();
-    resendPrepareTimeout->Stop();
-    closeBatchTimeout->Stop();
+    //viewChangeTimeout->Reset();
+    //nullCommitTimeout->Stop();
+    //resendPrepareTimeout->Stop();
+    //closeBatchTimeout->Stop();
     dsnet::vr::rdma_server_send();
     ToReplicaMessage m;
     StartViewChangeMessage *svc = m.mutable_start_view_change();
@@ -479,7 +451,7 @@ HandlePrepare(const PrepareMessage &msg) //delete remote
     ASSERT(msg.batchstart() <= msg.opnum());
     ASSERT_EQ(msg.opnum()-msg.batchstart()+1, (unsigned int)msg.request_size());
 
-    viewChangeTimeout->Reset();
+    //viewChangeTimeout->Reset();
     memset(src, 'p', 1);
     dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
@@ -576,7 +548,7 @@ HandleCommit(const CommitMessage &msg) //delete remote
         RPanic("Unexpected COMMIT: I'm the leader of this view");
     }
 
-    viewChangeTimeout->Reset();
+    //viewChangeTimeout->Reset();
     memset(src, 'p', 1);
     dsnet::vr::rdma_server_send();
     process_work_completion_events(io_completion_channel, &wc, 1);
@@ -1643,8 +1615,8 @@ rdma_server_receive()
 		case 't':{//send lastop, batchcomplete=false
 			//resendPrepareTimeout->Reset();closeBatchTimeout->Stop()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    resendPrepareTimeout->Reset();
-   		    closeBatchTimeout->Stop();
+		    //resendPrepareTimeout->Reset();
+   		    //closeBatchTimeout->Stop();
 		    batchComplete = false;
 		    memcpy(&lastOp, dst+1, sizeof(lastOp));
 		    lastBatchEnd = lastOp;
@@ -1652,12 +1624,12 @@ rdma_server_receive()
 		}
 		case 'v':{//NullCOmmitTimeout->start()
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    nullCommitTimeout->Start();
+		    //nullCommitTimeout->Start();
 		    break;
 		}
 		case 'B':{//HandleRequest()--clientAddress, updateclienttable(), 
 			//lastOp, new log entry, nullCommitTimeout->Reset();
-		    nullCommitTimeout->Reset();
+		    //nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int size;
 		    Request req;
@@ -1673,8 +1645,8 @@ rdma_server_receive()
 		}
 		case 'C':{//HandleRequest()--clientAddress, updateclienttable(),
 			//lastOp, new log entry, closeBatchTimeout->Start(), nullCommitTimeout->Reset()
-		    closeBatchTimeout->Start();
-		    nullCommitTimeout->Reset();
+		    //closeBatchTimeout->Start();
+		    //nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    int size;
 		    Request req;
@@ -1695,7 +1667,7 @@ rdma_server_receive()
 		}
 		case 'E':{//HandlePrepareOk--CommitUpTo(), nullCommitTimeout->Reset();
 			//prepareOKQuorum.AddAndCheckForQuorum(vs, msg.replicaidx(), msg))
-		    nullCommitTimeout->Reset();
+		    //nullCommitTimeout->Reset();
 		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    viewstamp_t vs;
 		    PrepareOKMessage msg;
@@ -1750,7 +1722,7 @@ int main(int argc, char **argv)
 		rdma_error("Failed to send server metadata to the client, ret = %d \n", ret);
 		return ret;
 	}
-	dsnet::vr::newTimeoutandLatency();
+	dsnet::vr::Latencyinit();
 	
 	while(true){
 	    dsnet::vr::rdma_server_receive();
