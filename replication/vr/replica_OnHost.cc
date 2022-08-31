@@ -1325,10 +1325,10 @@ send_server_metadata_to_client()
 	/* We need to setup requested memory buffer. This is where the client will 
 	* do RDMA READs and WRITEs. */
        server_src_mr = rdma_buffer_register(pd /* which protection domain */, 
-		       src, sizeof(src),
+		       src, sizeof(*src),
 		       IBV_ACCESS_LOCAL_WRITE); /* access permissions */
        server_dst_mr = rdma_buffer_register(pd /* which protection domain */, 
-		       dst, sizeof(dst),
+		       dst, sizeof(*dst),
 		       IBV_ACCESS_LOCAL_WRITE);
        if(!server_src_mr){
 	       rdma_error("Server failed to create a buffer \n");
