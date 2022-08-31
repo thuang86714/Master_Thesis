@@ -221,12 +221,12 @@ VRReplica::~VRReplica()
     Latency_Dump(&requestLatency);
     Latency_Dump(&executeAndReplyLatency);
 
-    //delete viewChangeTimeout;
+    delete viewChangeTimeout;
     delete nullCommitTimeout;
-    //delete stateTransferTimeout;
+    delete stateTransferTimeout;
     delete resendPrepareTimeout;
     delete closeBatchTimeout;
-    //delete recoveryTimeout;
+    delete recoveryTimeout;
 
     for (auto &kv : pendingPrepares) {
         delete kv.first;
