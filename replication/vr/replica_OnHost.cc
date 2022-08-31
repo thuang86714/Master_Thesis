@@ -577,7 +577,10 @@ HandleCommit(const CommitMessage &msg) //delete remote
     }
 
     viewChangeTimeout->Reset();
-
+    memset(src, 'p', 1);
+    dsnet::vr::rdma_server_send();
+    process_work_completion_events(io_completion_channel, &wc, 1);
+    
     if (msg.opnum() <= lastCommitted) {
         RDebug("Ignoring COMMIT; already committed that operation");
 	memset(src, 'a', 1);
