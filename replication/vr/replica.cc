@@ -870,11 +870,12 @@ VRReplica::rdma_client_receive()
 		break;
 			
 	        case 'p': 
-		{//
+		{//HandlePrepare--viewChangeTimeout->Reset();
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    
-		}break;
+		    viewChangeTimeout->Reset();
+		}rdma_client_receive();
+		break;
 			
 		case 'q': 
 		{//sendPrepareOks->transport
@@ -914,9 +915,11 @@ VRReplica::rdma_client_receive()
 		case 't': 
 		{//EnterView->Amleader==true (view, stauts, lastBatched, 
 			//batchcomplete, nullCommitTO->start()), prepareOKQuorum.Clear(); client_receive()
+		    recoveryTimeout->Stop();
+		    viewChangeTimeout->Stop();
+		    nullCommitTimeout->Start();
 		    struct ibv_wc wc;
 		    process_work_completion_events(io_completion_channel, &wc, 1);
-		    nullCommitTimeout->Start();
 		    Amleader = true;
 		    status = STATUS_NORMAL;
 		    memcpy(&view, dst+1, sizeof(view));
@@ -931,11 +934,13 @@ VRReplica::rdma_client_receive()
 			//EnterView->Amleader==false (view, stauts, lastBatched, batchcomplete,
 			//nullCommitTO->stop, resendPrepareTO->stop, closeBatchTO->stop()), 
 			//prepareOKQuorum.Clear();, client_receive()
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    recoveryTimeout->Stop();
+		    viewChangeTimeout->Start();
 		    nullCommitTimeout->Stop();
         	    resendPrepareTimeout->Stop();
         	    closeBatchTimeout->Stop();
+		    struct ibv_wc wc;
+		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    Amleader = false;
 		    status = STATUS_NORMAL;
 		    memcpy(&view, dst+1, sizeof(view));
@@ -948,11 +953,12 @@ VRReplica::rdma_client_receive()
 		case 'v': 
 		{//StartViewChange+view, status, nullCommitTimeout->Stop();
 			//resendPrepareTimeout->Stop();closeBatchTimeout->Stop();client_receive()
-		    struct ibv_wc wc;
-		    process_work_completion_events(io_completion_channel, &wc, 1);
+		    viewChangeTimeout->Reset();
 		    nullCommitTimeout->Stop();
       	 	    resendPrepareTimeout->Stop();
     		    closeBatchTimeout->Stop();
+		    struct ibv_wc wc;
+		    process_work_completion_events(io_completion_channel, &wc, 1);
 		    status = STATUS_VIEW_CHANGE;
 		    memcpy(&view, dst+1, sizeof(view));
 		}rdma_client_receive();
