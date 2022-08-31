@@ -270,7 +270,7 @@ client_xchange_metadata_with_server()
 	client_src_mr = rdma_buffer_register(pd,
 			src,
 			sizeof(src), //orginal code was strlen()
-			IBV_ACCESS_REMOTE_WRITE);
+			(IBV_ACCESS_LOCAL_WRITE));
 	if(!client_src_mr){
 		rdma_error("Failed to register the first buffer, ret = %d \n", ret);
 		return ret;
@@ -283,7 +283,7 @@ client_xchange_metadata_with_server()
 	client_metadata_mr = rdma_buffer_register(pd,
 			&client_metadata_attr,
 			sizeof(client_metadata_attr),
-			IBV_ACCESS_LOCAL_WRITE);
+			(IBV_ACCESS_LOCAL_WRITE));
 	if(!client_metadata_mr) {
 		rdma_error("Failed to register the client metadata buffer, ret = %d \n", ret);
 		return ret;
