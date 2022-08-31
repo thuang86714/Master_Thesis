@@ -160,8 +160,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     memcpy(src+1+sizeof(config)+sizeof(myIdx), transport, sizeof(*transport)); //dereference transport
     rdma_client_send();
     rdma_client_receive();
-    this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
-	    struct ibv_wc wc;
+     this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
             StartViewChange(view+1);
 	    memset(src, 'm', 1);
@@ -172,11 +171,8 @@ VRReplica::VRReplica(Configuration config, int myIdx,
             this->lastRequestStateTransferOpnum = 0;
 	    memset(src, 'n', 1);
 	    rdma_client_send();
-            process_work_completion_events(io_completion_channel, wc, 4);
         });
     this->stateTransferTimeout->Start();
-    
-    //the rest 3 Timeout are actually also part of logic on N10, but I will solve it by RDMA communication.
     this->recoveryTimeout = new Timeout(transport, 5000, [this]() {
             SendRecoveryMessages();
         });
@@ -189,7 +185,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     this->closeBatchTimeout = new Timeout(transport, 300, [this]() {
             CloseBatch();
         });
-    
+    process_work_completion_events(io_completion_channel, wc, 4);
 
     _Latency_Init(&requestLatency, "request");
     _Latency_Init(&executeAndReplyLatency, "executeAndReply");
@@ -383,7 +379,7 @@ VRReplica::ReceiveMessage(const TransportAddress &remote,
 	    rdma_client_send();
 	    rdma_client_receive();
 	    if (!ifrequeststatetransfer) {
-            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg));
+            pendingPrepares.push_back(std::pair<TransportAddress *, PrepareMessage>(remote.clone(), replica_msg);
             }
 	    ifrequeststatetransfer = true;
 	}break;
