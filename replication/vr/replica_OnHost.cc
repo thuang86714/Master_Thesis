@@ -1697,12 +1697,11 @@ rdma_server_receive()
 int main(int argc, char **argv) 
 {
 	int ret;
-	dsnet::AppReplica *nullApp = new dsnet::AppReplica();
 	struct sockaddr_in server_sockaddr;
 	bzero(&server_sockaddr, sizeof server_sockaddr);
 	server_sockaddr.sin_family = AF_INET; /* standard IP NET address */
 	server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* passed address */
-	char* const RDMA_CLIENT_ADDR = "10.1.0.7";
+	char* const RDMA_CLIENT_ADDR[] = "10.1.0.7";
 	dsnet::vr::src = dsnet::vr::dst = dsnet::vr::type = NULL;
         dsnet::vr::src = (char *)calloc(1073741824,1); 
         dsnet::vr::dst = (char *)calloc(1073741824,1); //hardcoded every RDMA read and for 1 GB (MAX Capacity is 2GB), 
