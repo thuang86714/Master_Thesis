@@ -162,7 +162,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
     rdma_client_receive();
      this->viewChangeTimeout = new Timeout(transport, 5000, [this,myIdx]() {
             RWarning("Have not heard from leader; starting view change");
-            StartViewChange(view+1);
+            //StartViewChange(view+1);
 	    memset(src, 'm', 1);
 	    rdma_client_send();
         });
