@@ -15,7 +15,6 @@
 #include "rdma_common.h"
 namespace dsnet {
 namespace vr {
-static int check_src_dst();
 
 /* This function prepares client side connection resources for an RDMA connection */
 int client_prepare_connection(struct sockaddr_in *s_addr);
