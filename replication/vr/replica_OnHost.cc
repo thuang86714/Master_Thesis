@@ -117,7 +117,7 @@ struct ClientTableEntry
         static const int replicaidx = 0;
 
 void
-newTimeoutandLatency()
+Latencyinit()
 {
 	std::string transport_cmdline;
 	transportptr = new dsnet::DPDKTransport(1, 0, 1, 0, transport_cmdline);
