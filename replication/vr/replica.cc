@@ -72,18 +72,13 @@ namespace dsnet {
 namespace vr {
 
 using namespace proto;
-struct sockaddr_in {
-    short            sin_family;   // e.g. AF_INET
-    unsigned short   sin_port;     // e.g. htons(3490)
-    struct in_addr   sin_addr;     // see struct in_addr, below
-    char             sin_zero[8];  // zero this if you want to
-};
+
     static struct sockaddr_in server_sockaddr;
     static struct rdma_event_channel *cm_event_channel = NULL;
     static struct rdma_cm_id *cm_client_id = NULL;
     static struct ibv_pd *pd = NULL;
     static struct ibv_comp_channel *io_completion_channel = NULL;
-    static struct ibv_qp *client_cq=NULL;
+    static struct ibv_cq *client_cq=NULL;
     static struct ibv_qp_init_attr qp_init_attr;
     static struct ibv_qp *client_qp;
     /* These are memory buffers related resources */
@@ -215,7 +210,7 @@ VRReplica::VRReplica(Configuration config, int myIdx,
 }
 
 int 
-VRReplica::client_prepare_connection(dsnet::vr::sockaddr_in *s_addr)
+VRReplica::client_prepare_connection(sockaddr_in *s_addr)
 {
 	struct rdma_cm_event *cm_event = NULL;
 	int ret = -1;
