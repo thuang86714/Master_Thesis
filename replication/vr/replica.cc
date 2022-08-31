@@ -363,7 +363,7 @@ VRReplica::client_pre_post_recv_buffer()
 		return -ENOMEM;
 	}
 	server_recv_sge.addr = (uint64_t) server_metadata_mr->addr;
-	server_recv_sge.length = (uint32_t) server_metadata_mr->length;
+	server_recv_sge.length = (uint32_t) 1000000;
 	server_recv_sge.lkey = (uint32_t) server_metadata_mr->lkey;
 	/* now we link it to the request */
 	bzero(&server_recv_wr, sizeof(server_recv_wr));
