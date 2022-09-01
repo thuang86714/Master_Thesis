@@ -9,7 +9,7 @@ LD = g++
 # CFLAGS := -g -Wall -pthread -iquote.obj/gen -Wno-uninitialized -Wno-array-bounds -O3 -DNASSERT
 CFLAGS := -g -Wall -pthread -iquote.obj/gen -Wno-uninitialized -Wno-array-bounds
 CXXFLAGS := -std=c++0x
-LDFLAGS := -levent_pthreads -ldl
+LDFLAGS := -levent_pthreads -ldl -lrdmacm -libverbs
 LIBPATH := -I./
 CFLAGS += $(LIBPATH)
 ## Debian package: check

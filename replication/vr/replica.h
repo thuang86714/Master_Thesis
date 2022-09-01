@@ -69,8 +69,10 @@ private:
     int batchSize;
     opnum_t lastBatchEnd;
     bool batchComplete;
-
+    bool Amleader;
+    bool ifrequeststatetransfer;
     Log log;
+    LogEntry* newlogentry;
     std::map<uint64_t, std::unique_ptr<TransportAddress> > clientAddresses;
     struct ClientTableEntry
     {
@@ -107,7 +109,15 @@ private:
     void UpdateClientTable(const Request &req);
     void ResendPrepare();
     void CloseBatch();
-
+    void rdma_client_send();
+    void rdma_client_receive();
+    void rdma_server_send();
+    void rdma_server_receive();
+    int client_prepare_connection(struct sockaddr_in *s_addr);
+    int client_pre_post_recv_buffer();
+    int client_connect_to_server();
+    int client_xchange_metadata_with_server();
+    int client_disconnect_and_clean();
     void HandleRequest(const TransportAddress &remote,
                        const proto::RequestMessage &msg);
     void HandleUnloggedRequest(const TransportAddress &remote,
